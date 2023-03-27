@@ -78,8 +78,6 @@ const main = async () => {
     await cpy(resolve('server/**'), resolve('dist/server'));
     await cpy([
       resolve('package.json'),
-      resolve('ecosystem.config.js'),
-      resolve('pnpm-lock.yaml')
     ], resolve('dist'));
   }
   catch (e) {
