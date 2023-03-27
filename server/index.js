@@ -13,10 +13,11 @@ import getSsrRouter  from './router/ssr.js';
 import config from './config/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isDev = process.env.NODE_ENV !== 'production';
 
 async function createServer() {
-  // 设置全局配置信息
-  global.serverPath = __dirname;
+  let host = config.host;
+  let port = config.port;
 
   const app = express();
 
@@ -30,10 +31,6 @@ async function createServer() {
     ssrProjectPath: path.join(config.projectPath, config.ssrUrlPrefix),
     homeProject: config.homeProject
   };
-
-  let host = config.host;
-  let port = config.port;
-
   app.locals.rendererCache = {};
 
   app.use(morgan('dev'));
@@ -56,14 +53,12 @@ async function createServer() {
   app.set('views', path.resolve(__dirname, 'views'));
   app.set('view engine', 'html');
 
-  const isDev = process.env.NODE_ENV !== 'production';
-
   const server = http.createServer(app);
 
   let viteServer;
 
   if (isDev) {
-    const devConfig = (await import('../config/config.dev.js')).default;
+    const devConfig = await (await import('../config/config.dev.js')).default();
 
     app.locals.serverConfig.normalProjectPath = path.join(devConfig.projectPath, config.normalUrlPrefix);
     app.locals.serverConfig.ssrProjectPath = path.join(devConfig.projectPath, config.ssrUrlPrefix);
@@ -86,7 +81,6 @@ async function createServer() {
     });
 
     app.use(viteServer.middlewares);
-
     app.use(express.static(devConfig.publicPath));
   }
   else {
