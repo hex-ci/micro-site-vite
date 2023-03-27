@@ -1,28 +1,34 @@
 // 线上用的配置文件，勿动！
 
-const path = require('path');
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-module.exports = {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default {
   // 服务器端口
-  port: 5173,
+  port: 3000,
 
   // 服务器绑定地址
   host: '0.0.0.0',
 
   // api 的 bese url
-  baseUrl: 'http://domain.com',
+  baseApiUrl: 'http://domain.com',
 
   // 首页使用的项目，只能是 SSR 项目
-  defaultProject: 'hello/world',
+  homeProject: 'home',
 
+  // 常规项目前缀，会影响 URL 和文件存储，慎重修改
+  normalUrlPrefix: 'site',
+
+  // SSR 项目前缀，会影响 URL 和文件存储，慎重修改
   ssrUrlPrefix: 'ssr',
 
-  // site 文件位置
-  sitePath: path.resolve(__dirname, '../../site'),
+  // 项目文件位置
+  projectPath: path.resolve(__dirname, '../..'),
 
-  // ssr 文件位置
-  ssrPath: path.resolve(__dirname, '../../ssr'),
+  // public 文件位置
+  publicPath: path.resolve(__dirname, '../../public'),
 
-  // static 文件位置
-  staticPath: path.resolve(__dirname, '../../static')
+  assetsPath: path.resolve(__dirname, '../../assets')
 };

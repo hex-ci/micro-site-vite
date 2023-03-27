@@ -1,39 +1,27 @@
 import cbT from 'cb-template';
-import fs from 'fs';
-
-const readFile = (file, options = { encoding: 'utf-8' }) => {
-  return new Promise(function(resolve, reject) {
-    fs.readFile(file, options, (err, data) => {
-      if (err) {
-        reject(err);
-      }
-      else {
-        resolve(data);
-      }
-    });
-  });
-};
 
 class BaseController {
-  constructor({ req, res, next, siteName }) {
+  constructor({ req, res, next, projectName, viteServer }) {
     this.$ctx = {
       request: req,
       response: res,
       next
     };
-    this.$siteName = siteName;
+    this.$projectName = projectName;
+    this.$viteServer = viteServer;
 
-    cbT.basePath = req.app.locals.serverConfig.sitePath;
+    cbT.basePath = req.app.locals.serverConfig.normalProjectPath;
   }
 
   $render(name, data = {}, options = {}) {
-    cbT.renderFile(`${this.$siteName}/${name.replace(/\.html$/i, '')}.html`, { ...this.$ctx.response.locals, ...data }, options, async (err, content) => {
+    cbT.renderFile(`${this.$projectName}/${name.replace(/\.html$/i, '')}.html`, { ...this.$ctx.response.locals, ...data }, options, async (err, content) => {
       if (err) {
         this.$ctx.next(err);
       }
       else {
-        if (process.env.NODE_ENV !== 'production') {
-          content = await this.$ctx.request.app.locals.viteServer.transformIndexHtml(this.$ctx.request.originalUrl, content);
+        // 开发环境下，需要经过 vite 开发服务器处理 html 文件
+        if (process.env.NODE_ENV !== 'production' && this.$viteServer) {
+          content = await this.$viteServer.transformIndexHtml(this.$ctx.request.originalUrl, content);
         }
 
         this.$ctx.response.send(content);
@@ -52,7 +40,6 @@ class StaticController extends BaseController {
 }
 
 export {
-  readFile,
   BaseController,
   StaticController
 };

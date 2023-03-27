@@ -5,16 +5,14 @@ import morgan from 'morgan';
 import path from 'path';
 import cbT from 'cb-template';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 import http from 'http';
 
-import siteRouter from './router/site.js';
-import ssrRouter  from './router/ssr.js';
-// const rootRouter = require('./router/root');
+import getNormalRouter from './router/normal.js';
+import getSsrRouter  from './router/ssr.js';
 
-// const config = require('./config');
+import config from './config/index.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function createServer() {
   // 设置全局配置信息
@@ -25,12 +23,16 @@ async function createServer() {
   // 初始化配置信息
   app.locals.serverConfig = {
     serverPath: __dirname,
-    // baseUrl: config.baseUrl,
-    sitePath: path.resolve(__dirname, '../src/site'),
-    ssrPath: path.resolve(__dirname, '../src/ssr'),
-    // defaultProject: config.defaultProject,
-    // ssrUrlPrefix: config.ssrUrlPrefix
+    baseApiUrl: config.baseApiUrl,
+    ssrUrlPrefix: config.ssrUrlPrefix,
+    normalUrlPrefix: config.normalUrlPrefix,
+    normalProjectPath: path.join(config.projectPath, config.normalUrlPrefix),
+    ssrProjectPath: path.join(config.projectPath, config.ssrUrlPrefix),
+    homeProject: config.homeProject
   };
+
+  let host = config.host;
+  let port = config.port;
 
   app.locals.rendererCache = {};
 
@@ -58,37 +60,50 @@ async function createServer() {
 
   const server = http.createServer(app);
 
-  if (isDev) {
-    // 开发环境创建开发服务器
+  let viteServer;
 
-    const vite = await createViteServer({
+  if (isDev) {
+    const devConfig = (await import('../config/config.dev.js')).default;
+
+    app.locals.serverConfig.normalProjectPath = path.join(devConfig.projectPath, config.normalUrlPrefix);
+    app.locals.serverConfig.ssrProjectPath = path.join(devConfig.projectPath, config.ssrUrlPrefix);
+    app.locals.serverConfig.baseApiUrl = devConfig.baseApiUrl;
+
+    host = devConfig.host;
+    port = devConfig.port;
+
+    const createViteServer = (await import('vite')).createServer;
+
+    // 开发环境创建开发服务器
+    viteServer = await createViteServer({
       server: {
         middlewareMode: true,
         hmr: {
-          server: server
+          server
         }
       },
       appType: 'custom'
     });
 
-    app.locals.viteServer = vite;
+    app.use(viteServer.middlewares);
 
-    app.use(vite.middlewares);
+    app.use(express.static(devConfig.publicPath));
   }
   else {
     app.disable('x-powered-by');
 
-    // app.use(express.static(config.staticPath));
+    app.use(express.static(config.publicPath));
+    app.use('/assets', express.static(config.assetsPath));
   }
 
-  // 用于 ssr 的中间件
-  app.use('/ssr/*', ssrRouter);
+  // 用于非 SSR 的中间件
+  app.use(`/${config.normalUrlPrefix}/*`, getNormalRouter({ viteServer }));
 
-  // 用于 site 的中间件
-  app.use('/site/*', siteRouter);
+  // 用于 SSR 的中间件
+  app.use(`/${config.ssrUrlPrefix}/*`, getSsrRouter({ viteServer }));
 
   // 用于显示首页
-  // app.use('/', rootRouter);
+  app.use(new RegExp(`^(\/|\/${config.homeProject}\/.*)$`, 'i'), getSsrRouter({ isHomeProject: true, viteServer }));
 
   // eslint-disable-next-line no-unused-vars
   app.use(function(err, req, res, next) {
@@ -122,9 +137,9 @@ async function createServer() {
   });
 
   // Listen the server
-  server.listen(5173);
+  server.listen(port, host);
 
-  console.log(`Server listening on http://127.0.0.1:5173`);
+  console.log(`Server listening on http://${host}:${port}`);
 }
 
 createServer();

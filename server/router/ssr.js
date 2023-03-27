@@ -1,46 +1,58 @@
 import express from 'express';
-import fs from 'fs';
+import { stat, readFile } from 'node:fs/promises';
 import path from 'path';
-import { readFile } from '../common/index.js';
 
-const router = express.Router();
+export default function getRouter({ viteServer, isHomeProject = false }) {
+  const router = express.Router();
 
-router.get('/', function(req, res, next) {
-  route(req, res, next);
-});
+  const splitPath = (uri) => {
+    const uriArr = uri.split('/');
+    const path = `/${uriArr.slice(2).join('/')}`;
 
-router.post('/', function(req, res, next) {
-  route(req, res, next);
-});
-
-// 查找文件夹
-const searchFolder = (rootPath, searchArray, searchIndex, callback) => {
-  if (searchIndex > searchArray.length) {
-    // 所有目录都存在
-    callback(searchArray.join('/'));
-    return;
+    return path;
   }
 
-  const currentPath = searchArray.slice(0, searchIndex).join('/');
+  // 查找文件夹
+  const searchFolder = async (rootPath, searchArray, searchIndex = 2) => {
+    if (searchIndex > searchArray.length) {
+      // 所有目录都存在
+      return searchArray.join('/');
+    }
 
-  fs.stat(rootPath + currentPath, (err, stat) => {
-    if (err || !stat.isDirectory()) {
-      // 目录不存在，返回
-      callback(searchArray.slice(0, searchIndex - 1).join('/'));
+    const currentPath = searchArray.slice(0, searchIndex).join('/');
+
+    try {
+      const stats = await stat(rootPath + currentPath);
+
+      if (stats.isDirectory()) {
+        // 目录存在，继续下一级
+        return await searchFolder(rootPath, searchArray, searchIndex + 1);
+      }
+    }
+    catch (e) {
+    }
+
+    // 目录不存在，返回
+    return searchArray.slice(0, searchIndex - 1).join('/');
+  }
+
+  const route = async (req, res, next) => {
+    const uri = splitPath(req.baseUrl);
+    const ssrPath = req.app.locals.serverConfig.ssrProjectPath;
+
+    let projectName;
+    let url;
+
+    if (isHomeProject) {
+      projectName = req.app.locals.serverConfig.homeProject;
+      url = req.originalUrl === '/' ? `/${projectName}` : req.originalUrl;
     }
     else {
-      // 目录存在，继续下一级
-      searchFolder(rootPath, searchArray, searchIndex + 1, callback);
+      // 查找 controller 文件夹
+      projectName = await searchFolder(ssrPath, uri.split('/'));
+      url = req.originalUrl;
     }
-  });
-}
 
-function route(req, res, next) {
-  const uri = splitPath(req.baseUrl);
-  const ssrPath = req.app.locals.serverConfig.ssrPath;
-
-  // 查找 controller 文件夹
-  searchFolder(ssrPath, uri.split('/'), 2, async (projectName) => {
     try {
       let render;
 
@@ -48,17 +60,15 @@ function route(req, res, next) {
         render = req.app.locals.rendererCache[projectName];
       }
       else {
-        const module = await req.app.locals.viteServer.ssrLoadModule(path.join(ssrPath, `${projectName}/entry-server.js`));
+        const module = await viteServer.ssrLoadModule(path.join(ssrPath, `${projectName}/entry-server.js`));
         render = module.render;
         req.app.locals.rendererCache[projectName] = render;
       }
 
-      const url = req.originalUrl;
+      let template = await readFile(path.join(ssrPath, `${projectName}/index.html`), 'utf-8');
+      template = await viteServer.transformIndexHtml(url, template);
 
-      let template = await readFile(path.join(ssrPath, `${projectName}/index.html`));
-      template = await req.app.locals.viteServer.transformIndexHtml(url, template);
-
-      const manifest = process.env.NODE_ENV === 'production' ? JSON.parse(fs.readFileSync(path.join(ssrPath, `${projectName}/client/ssr-manifest.json`), 'utf-8')) : {};
+      const manifest = process.env.NODE_ENV === 'production' ? JSON.parse(await readFile(path.join(ssrPath, `${projectName}/client/ssr-manifest.json`), 'utf-8')) : {};
 
       const [ appHtml, preloadLinks ] = await render(url, manifest);
 
@@ -70,17 +80,19 @@ function route(req, res, next) {
       // 6. 返回渲染后的 HTML。
       res.end(html);
     }
-    catch (err) {
-      next(err);
+    catch (e) {
+      console.log(e);
+      next(e);
     }
+  }
+
+  router.get('/', function(req, res, next) {
+    route(req, res, next);
   });
+
+  router.post('/', function(req, res, next) {
+    route(req, res, next);
+  });
+
+  return router;
 }
-
-function splitPath(uri) {
-  const uriArr = uri.split('/');
-  const path = `/${uriArr.slice(2).join('/')}`;
-
-  return path;
-}
-
-export default router;

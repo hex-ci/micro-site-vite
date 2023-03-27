@@ -1,0 +1,16 @@
+{
+  "restartable": "rs",
+  "ignore": [
+  ],
+  "verbose": false,
+  "watch": [
+    "server",
+    "src/site/**/server/*.js",
+    "utils",
+    "config"
+  ],
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "ext": "js"
+}
