@@ -25,7 +25,7 @@ if (!fileExists(siteConfig)) {
 }
 
 export default {
-  port: config.port || 8080,
+  port: config.port || 5173,
   host: config.host || '127.0.0.1',
   baseApiUrl: config.baseApiUrl,
 
