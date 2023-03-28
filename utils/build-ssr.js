@@ -19,7 +19,6 @@ const microSitePlugin = () => {
 
     generateBundle(_, bundle) {
       for (const key in bundle) {
-        console.log(key)
         if (key.endsWith('.html')) {
           bundle[key].fileName = path.basename(key);
         }
