@@ -55,49 +55,26 @@ async function createServer() {
 
   const server = http.createServer(app);
 
-  let viteServer;
-
   if (isDev) {
-    const devConfig = await (await import('../config/config.dev.js')).default();
+    const createDevServer = (await import('../utils/dev-server.js')).default;
 
-    app.locals.serverConfig.normalProjectPath = path.join(devConfig.projectPath, config.normalUrlPrefix);
-    app.locals.serverConfig.ssrProjectPath = path.join(devConfig.projectPath, config.ssrUrlPrefix);
-    app.locals.serverConfig.baseApiUrl = devConfig.baseApiUrl;
-
-    host = devConfig.host;
-    port = devConfig.port;
-
-    const createViteServer = (await import('vite')).createServer;
-
-    // 开发环境创建开发服务器
-    viteServer = await createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: {
-          server
-        }
-      },
-      appType: 'custom'
-    });
-
-    app.use(viteServer.middlewares);
-    app.use(express.static(devConfig.publicPath));
+    ({ host, port } = await createDevServer({ app, server }));
   }
   else {
     app.disable('x-powered-by');
 
     app.use(express.static(config.publicPath));
     app.use('/assets', express.static(config.assetsPath));
+
+    // 用于非 SSR 的中间件
+    app.use(`/${config.normalUrlPrefix}/*`, getNormalRouter());
+
+    // 用于 SSR 的中间件
+    app.use(`/${config.ssrUrlPrefix}/*`, getSsrRouter());
+
+    // 用于显示首页
+    app.use(new RegExp(`^(\/|\/${config.homeProject}\/.*)$`, 'i'), getSsrRouter({ isHomeProject: true }));
   }
-
-  // 用于非 SSR 的中间件
-  app.use(`/${config.normalUrlPrefix}/*`, getNormalRouter({ viteServer }));
-
-  // 用于 SSR 的中间件
-  app.use(`/${config.ssrUrlPrefix}/*`, getSsrRouter({ viteServer }));
-
-  // 用于显示首页
-  app.use(new RegExp(`^(\/|\/${config.homeProject}\/.*)$`, 'i'), getSsrRouter({ isHomeProject: true, viteServer }));
 
   // eslint-disable-next-line no-unused-vars
   app.use(function(err, req, res, next) {

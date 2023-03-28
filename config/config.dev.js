@@ -29,6 +29,7 @@ export default async function getConfig() {
     port: config.port || 5173,
     host: config.host || '127.0.0.1',
     baseApiUrl: config.baseApiUrl,
+    root: rootPath,
 
     // CDN URL 前缀，结尾需要斜杠
     // cdnUrlPrefix: 'https://domain.com/cdn/',
