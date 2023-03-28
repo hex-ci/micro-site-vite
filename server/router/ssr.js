@@ -69,11 +69,7 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
         manifest = JSON.parse(await readFile(path.join(ssrPath, `${projectName}/client/ssr-manifest.json`), 'utf-8'));
       }
 
-      const [ appHtml, preloadLinks ] = await render(url, manifest);
-
-      const html = template
-        .replace(`<!--preload-links-->`, preloadLinks)
-        .replace(`<!--app-html-->`, appHtml);
+      const html = await render({template, url, manifest, viteServer});
 
       res.end(html);
     }
