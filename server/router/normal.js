@@ -3,7 +3,7 @@ import { stat, access } from 'node:fs/promises';
 import path from 'path';
 import { StaticController } from '../common/index.js';
 
-export default function getRouter({ viteServer }) {
+export default function getRouter({ viteServer = null } = {}) {
   const router = express.Router();
 
   const splitPath = (req) => {

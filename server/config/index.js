@@ -24,11 +24,15 @@ export default {
   // SSR 项目前缀，会影响 URL 和文件存储，慎重修改
   ssrUrlPrefix: 'ssr',
 
+  // 资源不使用 OSS 的话，需要配置
+  resUrlPrefix: 'res',
+
   // 项目文件位置
   projectPath: path.resolve(__dirname, '../..'),
 
   // public 文件位置
   publicPath: path.resolve(__dirname, '../../public'),
 
-  assetsPath: path.resolve(__dirname, '../../assets')
+  // 资源文件位置（不使用 OSS 才需要）
+  resPath: path.resolve(__dirname, '../../res')
 };

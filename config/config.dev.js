@@ -33,7 +33,7 @@ export default async function getConfig() {
 
     // CDN URL 前缀，结尾需要斜杠
     // cdnUrlPrefix: 'https://domain.com/cdn/',
-    cdnUrlPrefix: '/assets/',
+    cdnUrlPrefix: '/res/',
 
     // 项目文件位置
     projectPath: path.resolve(__dirname, '../src'),

@@ -6,7 +6,6 @@ import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
 
-import devConfig from '../config/config.dev.js';
 import serverConfig from '../server/config/index.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -51,6 +50,8 @@ const main = async () => {
     process.exit(1);
   }
 
+  const devConfig = await (await import('../config/config.dev.js')).default();
+
   const defaultConfig = (await loadConfigFromFile()).config;
 
   // console.log(defaultConfig);
@@ -70,14 +71,14 @@ const main = async () => {
       ...defaultConfig
     });
 
-    await cpy([resolve(`dist/${serverConfig.normalUrlPrefix}/${projectName}/**/*`), '!**/*.html'], resolve(`dist/assets/${serverConfig.normalUrlPrefix}/${projectName}`));
+    await cpy([resolve(`dist/${serverConfig.normalUrlPrefix}/${projectName}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${serverConfig.normalUrlPrefix}/${projectName}`));
     await deleteAsync([resolve(`dist/${serverConfig.normalUrlPrefix}/${projectName}/**/*`), '!**/*.html']);
-
     await cpy(resolve(`src/${serverConfig.normalUrlPrefix}/${projectName}/server/**/*.js`), resolve(`dist/${serverConfig.normalUrlPrefix}/${projectName}/server`));
+
     await cpy(resolve('public/**'), resolve('dist/public'));
     await cpy(resolve('server/**'), resolve('dist/server'));
     await cpy([
-      resolve('package.json'),
+      resolve('package.json')
     ], resolve('dist'));
   }
   catch (e) {

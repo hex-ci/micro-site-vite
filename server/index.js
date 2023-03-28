@@ -27,6 +27,7 @@ async function createServer() {
     baseApiUrl: config.baseApiUrl,
     ssrUrlPrefix: config.ssrUrlPrefix,
     normalUrlPrefix: config.normalUrlPrefix,
+    resUrlPrefix: config.resUrlPrefix,
     normalProjectPath: path.join(config.projectPath, config.normalUrlPrefix),
     ssrProjectPath: path.join(config.projectPath, config.ssrUrlPrefix),
     homeProject: config.homeProject
@@ -64,7 +65,7 @@ async function createServer() {
     app.disable('x-powered-by');
 
     app.use(express.static(config.publicPath));
-    app.use('/assets', express.static(config.assetsPath));
+    app.use(`/${config.resUrlPrefix}`, express.static(config.resPath));
 
     // 用于非 SSR 的中间件
     app.use(`/${config.normalUrlPrefix}/*`, getNormalRouter());
@@ -73,7 +74,7 @@ async function createServer() {
     app.use(`/${config.ssrUrlPrefix}/*`, getSsrRouter());
 
     // 用于显示首页
-    app.use(new RegExp(`^(\/|\/${config.homeProject}\/.*)$`, 'i'), getSsrRouter({ isHomeProject: true }));
+    app.use(getSsrRouter({ isHomeProject: true }));
   }
 
   // eslint-disable-next-line no-unused-vars

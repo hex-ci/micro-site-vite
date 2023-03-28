@@ -69,7 +69,7 @@ export default async function createServer({ app, server }) {
   app.use(`/${config.ssrUrlPrefix}/*`, getSsrRouter({ viteServer }));
 
   // 用于显示首页
-  app.use(new RegExp(`^(\/|\/${config.homeProject}\/.*)$`, 'i'), getSsrRouter({ isHomeProject: true, viteServer }));
+  app.use(getSsrRouter({ isHomeProject: true, viteServer }));
 
   return {
     host: devConfig.host,

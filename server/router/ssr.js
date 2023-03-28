@@ -2,7 +2,9 @@ import express from 'express';
 import { stat, readFile } from 'node:fs/promises';
 import path from 'path';
 
-export default function getRouter({ viteServer, isHomeProject = false }) {
+const isDev = process.env.NODE_ENV !== 'production';
+
+export default function getRouter({ isHomeProject = false, viteServer = null } = {}) {
   const router = express.Router();
 
   const splitPath = (uri) => {
@@ -41,43 +43,38 @@ export default function getRouter({ viteServer, isHomeProject = false }) {
     const ssrPath = req.app.locals.serverConfig.ssrProjectPath;
 
     let projectName;
-    let url;
+    let url = req.originalUrl;
 
     if (isHomeProject) {
       projectName = req.app.locals.serverConfig.homeProject;
-      url = req.originalUrl === '/' ? `/${projectName}` : req.originalUrl;
     }
     else {
       // 查找 controller 文件夹
       projectName = await searchFolder(ssrPath, uri.split('/'));
-      url = req.originalUrl;
     }
 
     try {
       let render;
+      let template;
+      let manifest = {};
 
-      if (process.env.NODE_ENV === 'production' && req.app.locals.rendererCache[projectName]) {
-        render = req.app.locals.rendererCache[projectName];
+      if (isDev && viteServer) {
+        template = await readFile(path.join(ssrPath, `${projectName}/index.html`), 'utf-8');
+        template = await viteServer.transformIndexHtml(url, template);
+        render = (await viteServer.ssrLoadModule(path.join(ssrPath, `${projectName}/entry-server.js`))).render;
       }
       else {
-        const module = await viteServer.ssrLoadModule(path.join(ssrPath, `${projectName}/entry-server.js`));
-        render = module.render;
-        req.app.locals.rendererCache[projectName] = render;
+        template = await readFile(path.join(ssrPath, `${projectName}/client/index.html`), 'utf-8');
+        render = (await import(path.join(ssrPath, `${projectName}/server/entry-server.js`))).render;
+        manifest = JSON.parse(await readFile(path.join(ssrPath, `${projectName}/client/ssr-manifest.json`), 'utf-8'));
       }
-
-      let template = await readFile(path.join(ssrPath, `${projectName}/index.html`), 'utf-8');
-      template = await viteServer.transformIndexHtml(url, template);
-
-      const manifest = process.env.NODE_ENV === 'production' ? JSON.parse(await readFile(path.join(ssrPath, `${projectName}/client/ssr-manifest.json`), 'utf-8')) : {};
 
       const [ appHtml, preloadLinks ] = await render(url, manifest);
 
-      // 5. 注入渲染后的应用程序 HTML 到模板中。
       const html = template
         .replace(`<!--preload-links-->`, preloadLinks)
         .replace(`<!--app-html-->`, appHtml);
 
-      // 6. 返回渲染后的 HTML。
       res.end(html);
     }
     catch (e) {
@@ -86,13 +83,30 @@ export default function getRouter({ viteServer, isHomeProject = false }) {
     }
   }
 
-  router.get('/', function(req, res, next) {
-    route(req, res, next);
-  });
+  if (isHomeProject) {
+    router.use(function(req, res, next) {
+      const ssrUrlPrefix = req.app.locals.serverConfig.ssrUrlPrefix;
+      const normalUrlPrefix = req.app.locals.serverConfig.normalUrlPrefix;
+      const resUrlPrefix = req.app.locals.serverConfig.resUrlPrefix;
+      const reg = new RegExp(`^\/(${ssrUrlPrefix}|${normalUrlPrefix}|${resUrlPrefix})(\/|$)`);
 
-  router.post('/', function(req, res, next) {
-    route(req, res, next);
-  });
+      if (reg.test(req.originalUrl)) {
+        next(new Error('not found'));
+      }
+      else {
+        route(req, res, next);
+      }
+    });
+  }
+  else {
+    router.get('/', function(req, res, next) {
+      route(req, res, next);
+    });
+
+    router.post('/', function(req, res, next) {
+      route(req, res, next);
+    });
+  }
 
   return router;
 }
