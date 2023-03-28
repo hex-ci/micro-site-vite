@@ -1,6 +1,6 @@
 import { basename, relative } from 'node:path';
-import { renderToString } from 'vue/server-renderer'
-import { createApp } from './main'
+import { renderToString } from 'vue/server-renderer';
+import { createApp } from './main';
 
 export async function render({template, url, manifest}) {
   const { app, router } = createApp();
