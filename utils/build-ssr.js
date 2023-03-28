@@ -11,7 +11,7 @@ import serverConfig from '../server/config/index.js';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const argv = process.argv;
 
-const microSitePlugin = (projectName) => {
+const microSitePlugin = () => {
   return {
     name: 'vite-plugin-micro-site',
     apply: 'build',
