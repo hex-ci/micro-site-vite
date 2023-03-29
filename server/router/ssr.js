@@ -64,7 +64,7 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
     }
     else {
       // 查找 controller 文件夹
-      projectName = await searchFolder(ssrPath, uri.split('/'));
+      projectName = await searchFolder(ssrPath, uri.split('/').splice(1, 1));
     }
 
     try {
@@ -87,6 +87,22 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
 
       if (isDev && viteServer) {
         html = await viteServer.transformIndexHtml(url, html);
+
+        let styleTag = '';
+        viteServer.moduleGraph.idToModuleMap.forEach((module) => {
+          if (module.ssrModule && module.url.indexOf(`/src/${req.app.locals.serverConfig.ssrUrlPrefix}/${projectName}/`) === 0 && module.id.endsWith('.css')) {
+            styleTag += `<style type="text/css" micro-site-ssr-dev data-vite-dev-id="${module.id}">${module.ssrModule.default}</style>`;
+          }
+        });
+        html = html.replace('</head>', `${styleTag}<script>
+        window.onload = () => {
+          setTimeout(() => {
+            document.querySelectorAll('style[micro-site-ssr-dev]').forEach(item => {
+              item.remove();
+            });
+          }, 500);
+        }
+        </script></head>`);
       }
 
       res.end(html);

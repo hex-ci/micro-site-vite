@@ -88,7 +88,7 @@ export default function getRouter({ viteServer = null } = {}) {
 
         await access(staticPath);
 
-        const staticInstance = new StaticController({ req, res, next, projectName: dir, viteServer });
+        const staticInstance = new StaticController({ req, res, next, projectName: dir.slice(1), viteServer });
         staticInstance.main(staticFilename);
       }
       else {
@@ -102,7 +102,7 @@ export default function getRouter({ viteServer = null } = {}) {
         try {
           const controllerClass = (await import(`${controllerPath}.js`)).default;
 
-          const controller = new controllerClass({ req, res, next, projectName: dir, viteServer });
+          const controller = new controllerClass({ req, res, next, projectName: dir.slice(1), viteServer });
           let action = controller[pathArr.method];
 
           // 尝试下划线分隔命名转成驼峰命名，以便让 url 使用下划线而 JS 保持驼峰不变。
