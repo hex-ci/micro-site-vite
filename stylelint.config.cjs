@@ -67,13 +67,6 @@ module.exports = {
         ignorePseudoElements: ['v-deep']
       }
     ],
-    'color-hex-length': 'short',
-    'order/order': [
-      "custom-properties",
-      "dollar-variables",
-      "declarations",
-      "rules",
-      "at-rules"
-    ]
+    'color-hex-length': 'short'
   }
 }
