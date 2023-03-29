@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { build, loadConfigFromFile } from 'vite';
+import { build, loadConfigFromFile, mergeConfig } from 'vite';
 import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
@@ -54,41 +54,42 @@ const main = async () => {
   const clientViteConfig = (await loadConfigFromFile()).config;
   const serverViteConfig = (await loadConfigFromFile()).config;
 
-  clientViteConfig.plugins.push(microSitePlugin());
-  clientViteConfig.base = `${devConfig.cdnUrlPrefix}${serverConfig.ssrUrlPrefix}/${projectName}/`;
-  clientViteConfig.build = {
-    ssrManifest: true,
-    outDir: `dist/${serverConfig.ssrUrlPrefix}/${projectName}/client`,
-    rollupOptions: {
-      input: `src/${serverConfig.ssrUrlPrefix}/${projectName}/index.html`,
+  const clientBuildConfig = mergeConfig(clientViteConfig, {
+    plugins: [microSitePlugin()],
+    base: `${devConfig.cdnUrlPrefix}${serverConfig.ssrUrlPrefix}/${projectName}/`,
+    build: {
+      ssrManifest: true,
+      outDir: `dist/${serverConfig.ssrUrlPrefix}/${projectName}/client`,
+      rollupOptions: {
+        input: `src/${serverConfig.ssrUrlPrefix}/${projectName}/index.html`
+      }
     }
-  };
+  });
 
-  // serverViteConfig.plugins.push(microSitePlugin());
-  serverViteConfig.base = `${devConfig.cdnUrlPrefix}${serverConfig.ssrUrlPrefix}/${projectName}/`;
-  serverViteConfig.build = {
-    ssr: true,
-    outDir: `dist/${serverConfig.ssrUrlPrefix}/${projectName}/server`,
-    rollupOptions: {
-      input: `src/${serverConfig.ssrUrlPrefix}/${projectName}/entry-server.js`,
+  const serverBuildConfig = mergeConfig(serverViteConfig, {
+    base: `${devConfig.cdnUrlPrefix}${serverConfig.ssrUrlPrefix}/${projectName}/`,
+    build: {
+      ssr: true,
+      outDir: `dist/${serverConfig.ssrUrlPrefix}/${projectName}/server`,
+      rollupOptions: {
+        input: `src/${serverConfig.ssrUrlPrefix}/${projectName}/entry-server.js`
+      }
     }
-  };
-
-  // console.log(clientViteConfig, serverViteConfig);
+  });
 
   try {
     console.log(chalk.cyanBright('\n构建 Server...\n'));
 
     await build({
       configFile: false,
-      ...serverViteConfig
+      ...serverBuildConfig
     });
 
     console.log(chalk.cyanBright('\n构建 Client...\n'));
 
     await build({
       configFile: false,
-      ...clientViteConfig
+      ...clientBuildConfig
     });
 
     await cpy([resolve(`dist/${serverConfig.ssrUrlPrefix}/${projectName}/client/**/*`), '!**/*.html', '!**/ssr-manifest.json'], resolve(`dist/${serverConfig.resUrlPrefix}/${serverConfig.ssrUrlPrefix}/${projectName}`));

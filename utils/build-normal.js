@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { build, loadConfigFromFile } from 'vite';
+import { build, loadConfigFromFile, mergeConfig } from 'vite';
 import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
@@ -55,19 +55,21 @@ const main = async () => {
 
   // console.log(defaultConfig);
 
-  defaultConfig.plugins.push(microSitePlugin());
-  defaultConfig.base = `${devConfig.cdnUrlPrefix}${serverConfig.normalUrlPrefix}/${projectName}/`;
-  defaultConfig.build = {
-    outDir: `dist/${serverConfig.normalUrlPrefix}/${projectName}`,
-    rollupOptions: {
-      input: `src/${serverConfig.normalUrlPrefix}/${projectName}/index.html`,
+  const buildConfig = mergeConfig(defaultConfig, {
+    plugins: [microSitePlugin()],
+    base: `${devConfig.cdnUrlPrefix}${serverConfig.normalUrlPrefix}/${projectName}/`,
+    build: {
+      outDir: `dist/${serverConfig.normalUrlPrefix}/${projectName}`,
+      rollupOptions: {
+        input: `src/${serverConfig.normalUrlPrefix}/${projectName}/index.html`
+      }
     }
-  };
+  });
 
   try {
     await build({
       configFile: false,
-      ...defaultConfig
+      ...buildConfig
     });
 
     await cpy([resolve(`dist/${serverConfig.normalUrlPrefix}/${projectName}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${serverConfig.normalUrlPrefix}/${projectName}`));
