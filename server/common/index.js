@@ -8,15 +8,21 @@ class BaseController {
       next
     };
     this.$projectName = projectName;
-    this.$viteServer = viteServer;
 
-    cbT.basePath = req.app.locals.serverConfig.normalProjectPath;
+    // viteServer 只在开发环境下存在
+    this.$viteServer = viteServer;
   }
 
   $render(name, data = {}, options = {}) {
-    cbT.renderFile(`${this.$projectName}/${name.replace(/\.html$/i, '')}.html`, { ...this.$ctx.response.locals, ...data }, options, async (err, content) => {
+    cbT.renderFile(`${this.$ctx.request.app.locals.serverConfig.normalUrlPrefix}/${this.$projectName}/${name.replace(/\.html$/i, '')}.html`, { ...this.$ctx.response.locals, ...data }, options, async (err, content) => {
       if (err) {
-        this.$ctx.next(err);
+        if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+          this.$ctx.next();
+        }
+        else {
+          console.log(err);
+          this.$ctx.next(err);
+        }
       }
       else {
         // 开发环境下，需要经过 vite 开发服务器处理 html 文件

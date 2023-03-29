@@ -51,6 +51,6 @@
     "vue-tsc": "^1.0.24"
   },
   "imports": {
-    "#server-common/*.js": "./server/common/*.js"
+    "#server/*": "./server/*"
   }
 }

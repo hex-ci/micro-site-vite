@@ -1,8 +1,22 @@
 import express from 'express';
 import { stat, readFile } from 'node:fs/promises';
 import path from 'path';
+import cbT from 'cb-template';
 
 const isDev = process.env.NODE_ENV !== 'production';
+
+const renderTemplate = (filename, data, options) => {
+  return new Promise((resolve, reject) => {
+    cbT.renderFile(filename, data, options, (err, content) => {
+      if (err) {
+        reject(err);
+      }
+      else {
+        resolve(content);
+      }
+    });
+  });
+};
 
 export default function getRouter({ isHomeProject = false, viteServer = null } = {}) {
   const router = express.Router();
@@ -43,7 +57,7 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
     const ssrPath = req.app.locals.serverConfig.ssrProjectPath;
 
     let projectName;
-    let url = req.originalUrl;
+    const url = req.originalUrl;
 
     if (isHomeProject) {
       projectName = req.app.locals.serverConfig.homeProject;
@@ -55,27 +69,36 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
 
     try {
       let render;
-      let template;
-      let manifest = {};
+      let manifest;
 
-      if (isDev && viteServer) {
-        template = await readFile(path.join(ssrPath, `${projectName}/index.html`), 'utf-8');
-        template = await viteServer.transformIndexHtml(url, template);
+      const templateFilename = path.join(req.app.locals.serverConfig.ssrUrlPrefix, `${projectName}/index.html`);
+
+      if (isDev) {
         render = (await viteServer.ssrLoadModule(path.join(ssrPath, `${projectName}/entry-server.js`))).render;
+        manifest = {};
       }
       else {
-        template = await readFile(path.join(ssrPath, `${projectName}/client/index.html`), 'utf-8');
         render = (await import(path.join(ssrPath, `${projectName}/server/entry-server.js`))).render;
-        manifest = JSON.parse(await readFile(path.join(ssrPath, `${projectName}/client/ssr-manifest.json`), 'utf-8'));
+        manifest = JSON.parse(await readFile(path.join(ssrPath, `${projectName}/ssr-manifest.json`), 'utf-8'));
       }
 
-      const html = await render({template, url, manifest, viteServer});
+      const templateData = await render({ templateFilename, url, manifest, viteServer });
+      let html = await renderTemplate(templateFilename, templateData);
+
+      if (isDev && viteServer) {
+        html = await viteServer.transformIndexHtml(url, html);
+      }
 
       res.end(html);
     }
     catch (e) {
-      console.log(e);
-      next(e);
+      if (e.code === 'ENOENT') {
+        next();
+      }
+      else {
+        console.log(e);
+        next(e);
+      }
     }
   }
 
@@ -84,7 +107,7 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
       const ssrUrlPrefix = req.app.locals.serverConfig.ssrUrlPrefix;
       const normalUrlPrefix = req.app.locals.serverConfig.normalUrlPrefix;
       const resUrlPrefix = req.app.locals.serverConfig.resUrlPrefix;
-      const reg = new RegExp(`^\/(${ssrUrlPrefix}|${normalUrlPrefix}|${resUrlPrefix})(\/|$)`);
+      const reg = new RegExp(`^/(${ssrUrlPrefix}|${normalUrlPrefix}|${resUrlPrefix})(/|$)`);
 
       if (reg.test(req.originalUrl)) {
         next(new Error('not found'));

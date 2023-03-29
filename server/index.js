@@ -28,11 +28,11 @@ async function createServer() {
     ssrUrlPrefix: config.ssrUrlPrefix,
     normalUrlPrefix: config.normalUrlPrefix,
     resUrlPrefix: config.resUrlPrefix,
+    projectPath: config.projectPath,
     normalProjectPath: path.join(config.projectPath, config.normalUrlPrefix),
     ssrProjectPath: path.join(config.projectPath, config.ssrUrlPrefix),
     homeProject: config.homeProject
   };
-  app.locals.rendererCache = {};
 
   app.use(morgan('dev'));
   app.use(bodyParser.json({ limit: '6mb' }));
@@ -54,6 +54,9 @@ async function createServer() {
   app.set('views', path.resolve(__dirname, 'views'));
   app.set('view engine', 'html');
 
+  cbT.leftDelimiter = '{{';
+  cbT.rightDelimiter = '}}';
+
   const server = http.createServer(app);
 
   if (isDev) {
@@ -63,6 +66,9 @@ async function createServer() {
   }
   else {
     app.disable('x-powered-by');
+
+    // 设置全局 cbT basePath
+    cbT.basePath = config.projectPath;
 
     app.use(express.static(config.publicPath));
     app.use(`/${config.resUrlPrefix}`, express.static(config.resPath));

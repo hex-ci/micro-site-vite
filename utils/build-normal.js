@@ -5,27 +5,12 @@ import { build, loadConfigFromFile, mergeConfig } from 'vite';
 import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
+import renameHtml from './vite-plugin-rename-html.js';
 
 import serverConfig from '../server/config/index.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const argv = process.argv;
-
-const microSitePlugin = () => {
-  return {
-    name: 'vite-plugin-micro-site',
-    apply: 'build',
-    enforce: 'post',
-
-    generateBundle(_, bundle) {
-      for (const key in bundle) {
-        if (key.endsWith('.html')) {
-          bundle[key].fileName = path.basename(key);
-        }
-      }
-    }
-  }
-}
 
 const resolve = (str) => {
   return path.resolve(__dirname, `../${str}`);
@@ -39,9 +24,10 @@ const main = async () => {
   }
 
   const projectName = argv[2];
+  const normalPath = `${serverConfig.normalUrlPrefix}/${projectName}`;
 
   try {
-    fs.accessSync(resolve(`src/${serverConfig.normalUrlPrefix}/${projectName}`));
+    fs.accessSync(resolve(`src/${normalPath}`));
   }
   catch (e) {
     console.log(chalk.yellow('\n项目不存在！\n'));
@@ -53,15 +39,13 @@ const main = async () => {
 
   const defaultConfig = (await loadConfigFromFile()).config;
 
-  // console.log(defaultConfig);
-
   const buildConfig = mergeConfig(defaultConfig, {
-    plugins: [microSitePlugin()],
-    base: `${devConfig.cdnUrlPrefix}${serverConfig.normalUrlPrefix}/${projectName}/`,
+    plugins: [renameHtml()],
+    base: `${devConfig.cdnUrlPrefix}${normalPath}/`,
     build: {
-      outDir: `dist/${serverConfig.normalUrlPrefix}/${projectName}`,
+      outDir: `dist/${normalPath}`,
       rollupOptions: {
-        input: `src/${serverConfig.normalUrlPrefix}/${projectName}/index.html`
+        input: `src/${normalPath}/index.html`
       }
     }
   });
@@ -72,9 +56,9 @@ const main = async () => {
       ...buildConfig
     });
 
-    await cpy([resolve(`dist/${serverConfig.normalUrlPrefix}/${projectName}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${serverConfig.normalUrlPrefix}/${projectName}`));
-    await deleteAsync([resolve(`dist/${serverConfig.normalUrlPrefix}/${projectName}/**/*`), '!**/*.html']);
-    await cpy(resolve(`src/${serverConfig.normalUrlPrefix}/${projectName}/server/**/*.js`), resolve(`dist/${serverConfig.normalUrlPrefix}/${projectName}/server`));
+    await cpy([resolve(`dist/${normalPath}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${normalPath}`));
+    await deleteAsync([resolve(`dist/${normalPath}/**/*`), '!**/*.html']);
+    await cpy(resolve(`src/${normalPath}/server/**/*.js`), resolve(`dist/${normalPath}/server`));
 
     await cpy(resolve('public/**'), resolve('dist/public'));
     await cpy(resolve('server/**'), resolve('dist/server'));

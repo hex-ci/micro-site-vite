@@ -2,7 +2,7 @@ import { basename } from 'node:path';
 import { renderToString } from 'vue/server-renderer';
 import { createApp } from './main';
 
-export async function render({template, url, manifest}) {
+export async function render({ url, manifest }) {
   const { app, router } = createApp();
 
   await router.push(url);
@@ -13,11 +13,7 @@ export async function render({template, url, manifest}) {
 
   const preloadLinks = renderPreloadLinks(ctx.modules, manifest);
 
-  const html = template
-    .replace(`<!--preload-links-->`, preloadLinks)
-    .replace(`<!--app-html-->`, appHtml);
-
-  return html;
+  return { preload: preloadLinks, app: appHtml };
 }
 
 function renderPreloadLinks(modules, manifest) {

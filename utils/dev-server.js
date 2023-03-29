@@ -4,6 +4,7 @@ import compress from 'compression';
 import express from 'express';
 import qs from 'qs';
 import { createServer as createViteServer } from 'vite';
+import cbT from 'cb-template';
 
 import getNormalRouter from '../server/router/normal.js';
 import getSsrRouter  from '../server/router/ssr.js';
@@ -16,6 +17,10 @@ export default async function createServer({ app, server }) {
   app.locals.serverConfig.normalProjectPath = path.join(devConfig.projectPath, config.normalUrlPrefix);
   app.locals.serverConfig.ssrProjectPath = path.join(devConfig.projectPath, config.ssrUrlPrefix);
   app.locals.serverConfig.baseApiUrl = devConfig.baseApiUrl;
+  app.locals.serverConfig.projectPath = devConfig.projectPath;
+
+  // 设置全局 cbT basePath
+  cbT.basePath = devConfig.projectPath;
 
   // 开发环境创建开发服务器
   const viteServer = await createViteServer({

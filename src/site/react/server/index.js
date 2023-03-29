@@ -1,4 +1,4 @@
-import { BaseController } from '#server-common/index.js';
+import { BaseController } from '#server/common/index.js';
 
 class Controller extends BaseController {
 

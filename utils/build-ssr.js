@@ -5,27 +5,12 @@ import { build, loadConfigFromFile, mergeConfig } from 'vite';
 import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
+import renameHtml from './vite-plugin-rename-html.js';
 
 import serverConfig from '../server/config/index.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const argv = process.argv;
-
-const microSitePlugin = () => {
-  return {
-    name: 'vite-plugin-micro-site',
-    apply: 'build',
-    enforce: 'post',
-
-    generateBundle(_, bundle) {
-      for (const key in bundle) {
-        if (key.endsWith('.html')) {
-          bundle[key].fileName = path.basename(key);
-        }
-      }
-    }
-  }
-}
 
 const resolve = (str) => {
   return path.resolve(__dirname, `../${str}`);
@@ -39,9 +24,10 @@ const main = async () => {
   }
 
   const projectName = argv[2];
+  const ssrPath = `${serverConfig.ssrUrlPrefix}/${projectName}`;
 
   try {
-    fs.accessSync(resolve(`src/${serverConfig.ssrUrlPrefix}/${projectName}`));
+    fs.accessSync(resolve(`src/${ssrPath}`));
   }
   catch (e) {
     console.log(chalk.yellow('\n项目不存在！\n'));
@@ -55,36 +41,30 @@ const main = async () => {
   const serverViteConfig = (await loadConfigFromFile()).config;
 
   const clientBuildConfig = mergeConfig(clientViteConfig, {
-    plugins: [microSitePlugin()],
-    base: `${devConfig.cdnUrlPrefix}${serverConfig.ssrUrlPrefix}/${projectName}/`,
+    plugins: [renameHtml()],
+    base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
     build: {
       ssrManifest: true,
-      outDir: `dist/${serverConfig.ssrUrlPrefix}/${projectName}/client`,
+      outDir: `dist/${ssrPath}`,
       rollupOptions: {
-        input: `src/${serverConfig.ssrUrlPrefix}/${projectName}/index.html`
+        input: `src/${ssrPath}/index.html`
       }
     }
   });
 
   const serverBuildConfig = mergeConfig(serverViteConfig, {
-    base: `${devConfig.cdnUrlPrefix}${serverConfig.ssrUrlPrefix}/${projectName}/`,
+    base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
     build: {
       ssr: true,
-      outDir: `dist/${serverConfig.ssrUrlPrefix}/${projectName}/server`,
+      emptyOutDir: false,
+      outDir: `dist/${ssrPath}/server`,
       rollupOptions: {
-        input: `src/${serverConfig.ssrUrlPrefix}/${projectName}/entry-server.js`
+        input: `src/${ssrPath}/entry-server.js`
       }
     }
   });
 
   try {
-    console.log(chalk.cyanBright('\n构建 Server...\n'));
-
-    await build({
-      configFile: false,
-      ...serverBuildConfig
-    });
-
     console.log(chalk.cyanBright('\n构建 Client...\n'));
 
     await build({
@@ -92,9 +72,17 @@ const main = async () => {
       ...clientBuildConfig
     });
 
-    await cpy([resolve(`dist/${serverConfig.ssrUrlPrefix}/${projectName}/client/**/*`), '!**/*.html', '!**/ssr-manifest.json'], resolve(`dist/${serverConfig.resUrlPrefix}/${serverConfig.ssrUrlPrefix}/${projectName}`));
-    await deleteAsync([resolve(`dist/${serverConfig.ssrUrlPrefix}/${projectName}/client/**/*`), '!**/*.html', '!**/ssr-manifest.json']);
-    await cpy(resolve(`src/${serverConfig.ssrUrlPrefix}/${projectName}/server/**/*.js`), resolve(`dist/${serverConfig.ssrUrlPrefix}/${projectName}/server`));
+    console.log(chalk.cyanBright('\n构建 Server...\n'));
+
+    await build({
+      configFile: false,
+      ...serverBuildConfig
+    });
+
+    await cpy([resolve(`dist/${ssrPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**'], resolve(`dist/${serverConfig.resUrlPrefix}/${ssrPath}`));
+    await deleteAsync([resolve(`dist/${ssrPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**']);
+
+    await cpy([resolve(`src/${ssrPath}/*.html`), '!**/index.html'], resolve(`dist/${ssrPath}`));
 
     await cpy(resolve('public/**'), resolve('dist/public'));
     await cpy(resolve('server/**'), resolve('dist/server'));

@@ -25,6 +25,8 @@ export default function getRouter({ viteServer = null } = {}) {
     });
   }
 
+  const fileExists = async path => !!(await stat(path).catch(() => false));
+
   // 查找 controller 文件夹
   const searchControllerFolder = async (rootPath, searchArray, searchIndex = 2) => {
     if (searchIndex > searchArray.length) {
@@ -77,7 +79,13 @@ export default function getRouter({ viteServer = null } = {}) {
     staticPath = staticArray.join('/');
 
     try {
+      const isServerExists = await fileExists(`${normalPath}${dir}/server`);
+
       if (/\.html$/i.test(staticPath)) {
+        if (isServerExists) {
+          return next(new Error('not found'));
+        }
+
         await access(staticPath);
 
         const staticInstance = new StaticController({ req, res, next, projectName: dir, viteServer });
@@ -88,12 +96,11 @@ export default function getRouter({ viteServer = null } = {}) {
 
         if (pathArr.method.indexOf('$') === 0) {
           // $ 开头的是隐藏方法，不允许访问
-          next();
-          return;
+          return next();
         }
 
         try {
-          const controllerClass = (await import(controllerPath + '.js')).default;
+          const controllerClass = (await import(`${controllerPath}.js`)).default;
 
           const controller = new controllerClass({ req, res, next, projectName: dir, viteServer });
           let action = controller[pathArr.method];
@@ -146,4 +153,4 @@ export default function getRouter({ viteServer = null } = {}) {
   });
 
   return router;
-};
+}

@@ -15,11 +15,7 @@ export async function render({template, url, manifest}) {
 
   const preloadLinks = renderPreloadLinks(ctx.modules, manifest);
 
-  const html = template
-    .replace(`<!--preload-links-->`, preloadLinks)
-    .replace(`<!--app-html-->`, appHtml);
-
-  return html;
+  return { preload: preloadLinks, app: appHtml };
 }
 
 function renderPreloadLinks(modules, manifest) {
