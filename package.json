@@ -14,9 +14,8 @@
   },
   "scripts": {
     "dev": "nodemon server/index.js",
-    "build-normal": "node utils/build-normal.js",
-    "build-ssr": "node utils/build-ssr.js",
-    "preview": "vite preview"
+    "build:normal": "node utils/build-normal.js",
+    "build:ssr": "node utils/build-ssr.js"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
