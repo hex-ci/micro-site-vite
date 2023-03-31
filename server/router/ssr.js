@@ -5,19 +5,6 @@ import cbT from 'cb-template';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-const renderTemplate = (filename, data, options) => {
-  return new Promise((resolve, reject) => {
-    cbT.renderFile(filename, data, options, (err, content) => {
-      if (err) {
-        reject(err);
-      }
-      else {
-        resolve(content);
-      }
-    });
-  });
-};
-
 export default function getRouter({ isHomeProject = false, viteServer = null } = {}) {
   const router = express.Router();
 
@@ -71,9 +58,10 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
       let render;
       let manifest;
 
-      const templateFilename = path.join(req.app.locals.serverConfig.ssrUrlPrefix, `${projectName}/index.html`);
+      let html = await readFile(path.join(req.app.locals.serverConfig.ssrProjectPath, `${projectName}/index.html`), 'utf-8');
 
-      if (isDev) {
+      if (isDev && viteServer) {
+        html = await viteServer.transformIndexHtml(url, html);
         render = (await viteServer.ssrLoadModule(path.join(ssrPath, `${projectName}/entry-server.js`))).render;
         manifest = {};
       }
@@ -82,12 +70,10 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
         manifest = JSON.parse(await readFile(path.join(ssrPath, `${projectName}/ssr-manifest.json`), 'utf-8'));
       }
 
-      const templateData = await render({ templateFilename, url, manifest, viteServer });
-      let html = await renderTemplate(templateFilename, templateData);
+      const templateData = await render({ url, manifest, viteServer });
+      html = cbT.render(html, templateData);
 
       if (isDev && viteServer) {
-        html = await viteServer.transformIndexHtml(url, html);
-
         let styleTag = '';
         viteServer.moduleGraph.idToModuleMap.forEach((module) => {
           if (module.ssrModule && module.url.indexOf(`/src/${req.app.locals.serverConfig.ssrUrlPrefix}/${projectName}/`) === 0 && module.id.endsWith('.css')) {
@@ -105,7 +91,7 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
         </script></head>`);
       }
 
-      res.end(html);
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
     }
     catch (e) {
       if (e.code === 'ENOENT') {
