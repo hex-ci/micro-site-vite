@@ -43,6 +43,11 @@ const main = async () => {
   const clientBuildConfig = mergeConfig(clientViteConfig, {
     plugins: [renameHtml()],
     base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
+    resolve: {
+      alias: {
+        '@current': resolve(`src/${ssrPath}`)
+      }
+    },
     build: {
       ssrManifest: true,
       outDir: `dist/${ssrPath}`,
@@ -54,6 +59,11 @@ const main = async () => {
 
   const serverBuildConfig = mergeConfig(serverViteConfig, {
     base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
+    resolve: {
+      alias: {
+        '@current': resolve(`src/${ssrPath}`)
+      }
+    },
     build: {
       ssr: true,
       emptyOutDir: false,

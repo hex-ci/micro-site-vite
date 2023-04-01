@@ -2,7 +2,7 @@ import { basename, relative } from 'node:path';
 import { renderToString } from 'vue/server-renderer';
 import { createApp } from './main';
 
-export async function render({template, url, manifest}) {
+export async function render({ url, manifest }) {
   const { app, router } = createApp();
 
   const routerUrl = relative(router.options.history.base, url);

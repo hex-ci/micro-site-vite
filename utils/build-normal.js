@@ -24,10 +24,10 @@ const main = async () => {
   }
 
   const projectName = argv[2];
-  const normalPath = `${serverConfig.normalUrlPrefix}/${projectName}`;
+  const normalProjectPath = `${serverConfig.normalUrlPrefix}/${projectName}`;
 
   try {
-    fs.accessSync(resolve(`src/${normalPath}`));
+    fs.accessSync(resolve(`src/${normalProjectPath}`));
   }
   catch (e) {
     console.log(chalk.yellow('\n项目不存在！\n'));
@@ -41,11 +41,16 @@ const main = async () => {
 
   const buildConfig = mergeConfig(defaultConfig, {
     plugins: [renameHtml()],
-    base: `${devConfig.cdnUrlPrefix}${normalPath}/`,
+    base: `${devConfig.cdnUrlPrefix}${normalProjectPath}/`,
+    resolve: {
+      alias: {
+        '@current': resolve(`src/${normalProjectPath}`)
+      }
+    },
     build: {
-      outDir: `dist/${normalPath}`,
+      outDir: `dist/${normalProjectPath}`,
       rollupOptions: {
-        input: `src/${normalPath}/index.html`
+        input: `src/${normalProjectPath}/index.html`
       }
     }
   });
@@ -56,9 +61,9 @@ const main = async () => {
       ...buildConfig
     });
 
-    await cpy([resolve(`dist/${normalPath}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${normalPath}`));
-    await deleteAsync([resolve(`dist/${normalPath}/**/*`), '!**/*.html']);
-    await cpy(resolve(`src/${normalPath}/server/**/*.js`), resolve(`dist/${normalPath}/server`));
+    await cpy([resolve(`dist/${normalProjectPath}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${normalProjectPath}`));
+    await deleteAsync([resolve(`dist/${normalProjectPath}/**/*`), '!**/*.html']);
+    await cpy(resolve(`src/${normalProjectPath}/server/**/*.js`), resolve(`dist/${normalProjectPath}/server`));
 
     await cpy(resolve('public/**'), resolve('dist/public'));
     await cpy(resolve('server/**'), resolve('dist/server'));

@@ -3,9 +3,7 @@ import { stat, readFile } from 'node:fs/promises';
 import path from 'path';
 import cbT from 'cb-template';
 
-const isDev = process.env.NODE_ENV !== 'production';
-
-export default function getRouter({ isHomeProject = false, viteServer = null } = {}) {
+export default function getRouter({ isHomeProject = false } = {}) {
   const router = express.Router();
 
   const splitPath = (uri) => {
@@ -55,41 +53,13 @@ export default function getRouter({ isHomeProject = false, viteServer = null } =
     }
 
     try {
-      let render;
-      let manifest;
+      const render = (await import(path.join(ssrPath, `${projectName}/server/entry-server.js`))).render;
+      const manifest = JSON.parse(await readFile(path.join(ssrPath, `${projectName}/ssr-manifest.json`), 'utf-8'));
+
+      const templateData = await render({ url, manifest });
 
       let html = await readFile(path.join(req.app.locals.serverConfig.ssrProjectPath, `${projectName}/index.html`), 'utf-8');
-
-      if (isDev && viteServer) {
-        html = await viteServer.transformIndexHtml(url, html);
-        render = (await viteServer.ssrLoadModule(path.join(ssrPath, `${projectName}/entry-server.js`))).render;
-        manifest = {};
-      }
-      else {
-        render = (await import(path.join(ssrPath, `${projectName}/server/entry-server.js`))).render;
-        manifest = JSON.parse(await readFile(path.join(ssrPath, `${projectName}/ssr-manifest.json`), 'utf-8'));
-      }
-
-      const templateData = await render({ url, manifest, viteServer });
       html = cbT.render(html, templateData);
-
-      if (isDev && viteServer) {
-        let styleTag = '';
-        viteServer.moduleGraph.idToModuleMap.forEach((module) => {
-          if (module.ssrModule && module.url.indexOf(`/src/${req.app.locals.serverConfig.ssrUrlPrefix}/${projectName}/`) === 0 && module.id.endsWith('.css')) {
-            styleTag += `<style type="text/css" micro-site-ssr-dev data-vite-dev-id="${module.id}">${module.ssrModule.default}</style>`;
-          }
-        });
-        html = html.replace('</head>', `${styleTag}<script>
-        window.onload = () => {
-          setTimeout(() => {
-            document.querySelectorAll('style[micro-site-ssr-dev]').forEach(item => {
-              item.remove();
-            });
-          }, 500);
-        }
-        </script></head>`);
-      }
 
       res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
     }

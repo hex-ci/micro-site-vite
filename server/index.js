@@ -60,7 +60,7 @@ async function createServer() {
   const server = http.createServer(app);
 
   if (isDev) {
-    const createDevServer = (await import('../utils/dev-server.js')).default;
+    const createDevServer = (await import('../utils/dev-server/index.js')).default;
 
     ({ host, port } = await createDevServer({ app, server }));
   }
@@ -74,10 +74,10 @@ async function createServer() {
     app.use(`/${config.resUrlPrefix}`, express.static(config.resPath));
 
     // 用于非 SSR 的中间件
-    app.use(`/${config.normalUrlPrefix}/*`, getNormalRouter());
+    app.use(`/${config.normalUrlPrefix}`, getNormalRouter());
 
     // 用于 SSR 的中间件
-    app.use(`/${config.ssrUrlPrefix}/*`, getSsrRouter());
+    app.use(`/${config.ssrUrlPrefix}`, getSsrRouter());
 
     // 用于显示首页
     app.use(getSsrRouter({ isHomeProject: true }));
@@ -86,7 +86,7 @@ async function createServer() {
   // eslint-disable-next-line no-unused-vars
   app.use(function(err, req, res, next) {
     // treat as 404
-    if (err.code === 404 || (err.message && /not found/i.test(err.message))) {
+    if (err.code === 'ENOENT' || err.status === 404 || (err.message && /not found/i.test(err.message))) {
       return next();
     }
 

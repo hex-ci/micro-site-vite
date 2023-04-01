@@ -12,9 +12,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@normal': fileURLToPath(new URL(`./src/${serverConfig.normalUrlPrefix}`, import.meta.url)),
-      '@ssr': fileURLToPath(new URL(`./src/${serverConfig.ssrUrlPrefix}`, import.meta.url))
+      '@ssr': fileURLToPath(new URL(`./src/${serverConfig.ssrUrlPrefix}`, import.meta.url)),
+      '@static': fileURLToPath(new URL(`./src/static`, import.meta.url)),
     }
   },
-  base: '/',
   publicDir: false
 })

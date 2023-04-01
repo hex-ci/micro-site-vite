@@ -3,7 +3,7 @@ module.exports = {
     'stylelint-config-recommended-scss',
     'stylelint-config-rational-order'
   ],
-  ignoreFiles: ['**/*.{js,cjs,ts,tsx,svg}', 'dist/**'],
+  ignoreFiles: ['**/*.{js,cjs,ts,tsx,svg}', 'node_modules/.*/**', 'dist/**'],
   overrides: [
     {
       files: ['**/*.{vue,html}'],

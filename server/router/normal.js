@@ -3,55 +3,62 @@ import { stat, access } from 'node:fs/promises';
 import path from 'path';
 import { StaticController } from '../common/index.js';
 
-export default function getRouter({ viteServer = null } = {}) {
-  const router = express.Router();
+const splitPath = (url) => {
+  const uriArr = url.split('/');
+  const path = `/${uriArr.slice(2, -1).join('/')}`;
+  const method = uriArr.slice(-1);
 
-  const splitPath = (req) => {
-    const uriArr = req.baseUrl.split('/');
-    const path = `/${uriArr.slice(2, -1).join('/')}`;
-    const method = uriArr.slice(-1);
+  return {
+    path,
+    method,
+    full: path + '/' + method
+  };
+}
 
-    return {
-      path,
-      method,
-      full: path + '/' + method
-    };
+const toCamelCase = (str, delimiter) => {
+  const re = new RegExp(delimiter + '([a-z])', 'g')
+  return str.replace(re, function(g) {
+    return g[1].toUpperCase();
+  });
+}
+
+const fileExists = async path => !!(await stat(path).catch(() => false));
+
+// 查找 controller 文件夹
+const searchControllerFolder = async (rootPath, searchArray, searchIndex = 2) => {
+  if (searchIndex > searchArray.length) {
+    // 所有目录都存在
+    return [searchArray.join('/'), '', []];
   }
 
-  const toCamelCase = (str, delimiter) => {
-    const re = new RegExp(delimiter + '([a-z])', 'g')
-    return str.replace(re, function(g) {
-      return g[1].toUpperCase();
-    });
+  const currentPath = searchArray.slice(0, searchIndex).join('/');
+
+  try {
+    const stats = await stat(rootPath + currentPath);
+
+    if (stats.isDirectory()) {
+      // 目录存在，继续下一级
+      return await searchControllerFolder(rootPath, searchArray, searchIndex + 1);
+    }
+  }
+  catch (e) {
   }
 
-  const fileExists = async path => !!(await stat(path).catch(() => false));
+  return [currentPath, searchArray[searchIndex] || '', searchArray.slice(searchIndex)];
+}
+
+export const getProjectName = async (url, normalPath) => {
+  const pathArr = splitPath(url);
 
   // 查找 controller 文件夹
-  const searchControllerFolder = async (rootPath, searchArray, searchIndex = 2) => {
-    if (searchIndex > searchArray.length) {
-      // 所有目录都存在
-      return [searchArray.join('/'), '', []];
-    }
+  const [filePath] = await searchControllerFolder(normalPath, pathArr.full.split('/'));
 
-    const currentPath = searchArray.slice(0, searchIndex).join('/');
+  return path.dirname(filePath).slice(1);
+}
 
-    try {
-      const stats = await stat(rootPath + currentPath);
-
-      if (stats.isDirectory()) {
-        // 目录存在，继续下一级
-        return await searchControllerFolder(rootPath, searchArray, searchIndex + 1);
-      }
-    }
-    catch (e) {
-    }
-
-    return [currentPath, searchArray[searchIndex] || '', searchArray.slice(searchIndex)];
-  }
-
-  const route = async (req, res, next, showError) => {
-    const pathArr = splitPath(req, res);
+export const getMiddleware = ({ viteServer = null } = {}) => {
+  return async (req, res, next) => {
+    const pathArr = splitPath(req.originalUrl);
     const normalPath = req.app.locals.serverConfig.normalProjectPath;
 
     // 查找 controller 文件夹
@@ -124,7 +131,7 @@ export default function getRouter({ viteServer = null } = {}) {
             }
           }
           else {
-            showError ? next(new Error('method or property "' + pathArr.method + '" is not found in ' + pathArr.path + '.js')) : next();
+            next();
           }
         }
         catch (e) {
@@ -143,13 +150,18 @@ export default function getRouter({ viteServer = null } = {}) {
       }
     }
   }
+}
+
+export default function getRouter() {
+  const router = express.Router();
+  const middleware = getMiddleware();
 
   router.get('/', function(req, res, next) {
-    route(req, res, next);
+    middleware(req, res, next);
   });
 
   router.post('/', function(req, res, next) {
-    route(req, res, next, true);
+    middleware(req, res, next);
   });
 
   return router;
