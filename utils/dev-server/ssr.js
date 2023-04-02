@@ -4,11 +4,14 @@ import path from 'node:path';
 import cbT from 'cb-template';
 import { createServer as createViteServer } from 'vite';
 import getPort from 'get-port';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { WebSocket, WebSocketServer } from 'ws';
 
 import config from '../../server/config/index.js';
 
 const viteServerCache = {};
+const webSocketServerCache = {};
+const webSocketClientCache = {};
+const processedRequests = new Set();
 
 const searchFolderFromUrl = (url, rootPath) => {
   const urlArray = url.split('/');
@@ -49,12 +52,6 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, server, d
   }
   else {
     const port = await getPort();
-
-    const proxy = createProxyMiddleware(`/__micro-site-ssr__/${projectName}/__/__ws__`, {
-      target: `ws://127.0.0.1:${port}`,
-      // changeOrigin: true
-    });
-    server.on('upgrade', proxy.upgrade);
 
     viteServer = await createViteServer({
       base: `/__micro-site-ssr__/${projectName}/__`,
@@ -188,6 +185,71 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
     else {
       next();
     }
+  }
+
+  // 只需要在 ssr 路由监听一次即可，否则会导致多次监听 upgrade 事件，导致异常
+  if (!isHomeProject) {
+    // 处理 WebSocket 转发
+    server.on('upgrade', function upgrade(request, socket, head) {
+      const match = /\/__micro-site-ssr__\/(.+?)\/__\/__ws__/i.exec(request.url);
+
+      // 不是我的请求，忽略
+      if (!match) {
+        return;
+      }
+
+      const key = request.headers['sec-websocket-key'];
+
+      if (processedRequests.has(key)) {
+        socket.destroy();
+        return;
+      }
+
+      processedRequests.add(key);
+
+      const projectName = match[1];
+
+      let wss;
+
+      if (webSocketServerCache[projectName]) {
+        wss = webSocketServerCache[projectName];
+      }
+      else {
+        wss = new WebSocketServer({ noServer: true });
+
+        webSocketServerCache[projectName] = wss;
+
+        wss.on('connection', function connection(ws) {
+          console.log('connection', request.url);
+
+          if (webSocketClientCache[projectName]) {
+            webSocketClientCache[projectName].close();
+            webSocketClientCache[projectName] = null;
+          }
+
+          const port = viteServerCache[projectName].config.server.hmr.port;
+          const wsProxy = new WebSocket(`ws://127.0.0.1:${port}/__micro-site-ssr__/${projectName}/__/__ws__`);
+
+          webSocketClientCache[projectName] = wsProxy;
+
+          // 将 WebSocket 代理客户端的消息转发到客户端
+          wsProxy.on('message', (message) => {
+            ws.send(message.toString());
+          });
+
+          // 将客户端的消息转发到 WebSocket 代理客户端
+          ws.on('message', (message) => {
+            wsProxy.send(message.toString());
+          });
+
+          ws.on('error', console.error);
+        });
+      }
+
+      wss.handleUpgrade(request, socket, head, (ws, request) => {
+        wss.emit('connection', ws, request);
+      });
+    });
   }
 
   return middleware;
