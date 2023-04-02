@@ -40,7 +40,7 @@ const main = async () => {
   const clientViteConfig = (await loadConfigFromFile()).config;
   const serverViteConfig = (await loadConfigFromFile()).config;
 
-  const clientBuildConfig = mergeConfig(clientViteConfig, {
+  let clientBuildConfig = mergeConfig(clientViteConfig, {
     plugins: [renameHtml()],
     base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
     resolve: {
@@ -57,7 +57,7 @@ const main = async () => {
     }
   });
 
-  const serverBuildConfig = mergeConfig(serverViteConfig, {
+  let serverBuildConfig = mergeConfig(serverViteConfig, {
     base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
     resolve: {
       alias: {
@@ -73,6 +73,15 @@ const main = async () => {
       }
     }
   });
+
+  const myViteConfigPath = resolve(path.join('src', ssrPath, 'my-vite.config.js'));
+
+  if (fs.existsSync(myViteConfigPath)) {
+    const myViteConfig = (await import(myViteConfigPath)).default;
+
+    clientBuildConfig = myViteConfig(clientBuildConfig);
+    serverBuildConfig = myViteConfig(serverBuildConfig, true);
+  }
 
   try {
     console.log(chalk.cyanBright('\n构建 Client...\n'));

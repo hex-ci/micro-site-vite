@@ -36,10 +36,9 @@ const main = async () => {
   }
 
   const devConfig = await (await import('../config/config.dev.js')).default();
-
   const defaultConfig = (await loadConfigFromFile()).config;
 
-  const buildConfig = mergeConfig(defaultConfig, {
+  let buildConfig = mergeConfig(defaultConfig, {
     plugins: [renameHtml()],
     base: `${devConfig.cdnUrlPrefix}${normalProjectPath}/`,
     resolve: {
@@ -54,6 +53,12 @@ const main = async () => {
       }
     }
   });
+
+  const myViteConfigPath = resolve(path.join('src', normalProjectPath, 'my-vite.config.js'));
+
+  if (fs.existsSync(myViteConfigPath)) {
+    buildConfig = (await import(myViteConfigPath)).default(buildConfig);
+  }
 
   try {
     await build({

@@ -1,6 +1,7 @@
-import { createServer as createViteServer } from 'vite';
+import { createServer as createViteServer, loadConfigFromFile, mergeConfig } from 'vite';
+import fs from 'node:fs';
 import getPort from 'get-port';
-import path from 'path';
+import path from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
 
 import { getMiddleware as getNormalMiddleware, getProjectName } from '../../server/router/normal.js';
@@ -32,8 +33,9 @@ export default function getMiddleware({ devConfig, server } = {}) {
       }
       else {
         const port = await getPort();
+        const defaultViteConfig = (await loadConfigFromFile()).config;
 
-        viteServer = await createViteServer({
+        let viteConfig = mergeConfig(defaultViteConfig, {
           base: `/__micro-site-normal__/${projectName}/__`,
           cacheDir: `node_modules/.vite/micro-site-cache/normal/${projectName}`,
           server: {
@@ -54,6 +56,17 @@ export default function getMiddleware({ devConfig, server } = {}) {
               '@current': path.join(normalPath, projectName)
             }
           }
+        });
+
+        const myViteConfigPath = path.join(normalPath, `${projectName}/my-vite.config.js`);
+
+        if (fs.existsSync(myViteConfigPath)) {
+          viteConfig = (await import(myViteConfigPath)).default(viteConfig);
+        }
+
+        viteServer = await createViteServer({
+          configFile: false,
+          ...viteConfig
         });
 
         viteServerCache[projectName] = viteServer;
@@ -117,8 +130,6 @@ export default function getMiddleware({ devConfig, server } = {}) {
       webSocketServerCache[projectName] = wss;
 
       wss.on('connection', function connection(ws) {
-        console.log('connection', request.url);
-
         if (webSocketClientCache[projectName]) {
           webSocketClientCache[projectName].close();
           webSocketClientCache[projectName] = null;

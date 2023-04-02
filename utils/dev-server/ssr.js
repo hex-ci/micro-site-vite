@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import fs from 'node:fs';
 import path from 'node:path';
 import cbT from 'cb-template';
-import { createServer as createViteServer } from 'vite';
+import { createServer as createViteServer, loadConfigFromFile, mergeConfig } from 'vite';
 import getPort from 'get-port';
 import { WebSocket, WebSocketServer } from 'ws';
 
@@ -42,7 +42,7 @@ const searchFolderFromUrl = (url, rootPath) => {
   return subPath;
 }
 
-const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, server, devConfig }) => {
+const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig }) => {
   // 准备 vite server
 
   let viteServer;
@@ -52,8 +52,9 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, server, d
   }
   else {
     const port = await getPort();
+    const defaultViteConfig = (await loadConfigFromFile()).config;
 
-    viteServer = await createViteServer({
+    let viteConfig = mergeConfig(defaultViteConfig, {
       base: `/__micro-site-ssr__/${projectName}/__`,
       cacheDir: `node_modules/.vite/micro-site-cache/ssr/${projectName}`,
       server: {
@@ -74,6 +75,17 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, server, d
           '@current': path.join(devConfig.projectPath, config.ssrUrlPrefix, projectName)
         }
       }
+    });
+
+    const myViteConfigPath = path.join(ssrPath, `${projectName}/my-vite.config.js`);
+
+    if (fs.existsSync(myViteConfigPath)) {
+      viteConfig = (await import(myViteConfigPath)).default(viteConfig);
+    }
+
+    viteServer = await createViteServer({
+      configFile: false,
+      ...viteConfig
     });
 
     viteServerCache[projectName] = viteServer;
@@ -136,7 +148,7 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         return next();
       }
 
-      const {isSuccess, html, error } = await createViteServerAndGetHtml({ projectName, ssrPath, url, server, devConfig });
+      const {isSuccess, html, error } = await createViteServerAndGetHtml({ projectName, ssrPath, url, devConfig });
 
       if (isSuccess) {
         res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
@@ -172,7 +184,7 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         return next();
       }
 
-      const {isSuccess, html, error } = await createViteServerAndGetHtml({ projectName: config.homeProject, ssrPath, url, server, devConfig });
+      const {isSuccess, html, error } = await createViteServerAndGetHtml({ projectName: config.homeProject, ssrPath, url, devConfig });
 
       if (isSuccess) {
         res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
@@ -220,8 +232,6 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         webSocketServerCache[projectName] = wss;
 
         wss.on('connection', function connection(ws) {
-          console.log('connection', request.url);
-
           if (webSocketClientCache[projectName]) {
             webSocketClientCache[projectName].close();
             webSocketClientCache[projectName] = null;
