@@ -108,6 +108,12 @@ export default function getMiddleware({ devConfig, server } = {}) {
       return;
     }
 
+    const projectName = match[1];
+
+    if (!viteServerCache[projectName]) {
+      return;
+    }
+
     const key = request.headers['sec-websocket-key'];
 
     if (processedRequests.has(key)) {
@@ -116,8 +122,6 @@ export default function getMiddleware({ devConfig, server } = {}) {
     }
 
     processedRequests.add(key);
-
-    const projectName = match[1];
 
     let wss;
 
