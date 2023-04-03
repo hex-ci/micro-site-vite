@@ -105,7 +105,7 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
 
     let styleTag = '';
     viteServer.moduleGraph.idToModuleMap.forEach((module) => {
-      if (module.ssrModule && module.id.endsWith('.css')) {
+      if (module.ssrModule && /\.(css|scss|sass|less|styl)$/i.test(module.id)) {
         styleTag += `<style type="text/css" micro-site-ssr-dev data-vite-dev-id="${module.id}">${module.ssrModule.default}</style>`;
       }
     });
