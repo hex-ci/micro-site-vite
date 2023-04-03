@@ -148,7 +148,7 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         return next();
       }
 
-      const {isSuccess, html, error } = await createViteServerAndGetHtml({ projectName, ssrPath, url, devConfig });
+      const { isSuccess, html, error } = await createViteServerAndGetHtml({ projectName, ssrPath, url, devConfig });
 
       if (isSuccess) {
         res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
@@ -184,7 +184,7 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         return next();
       }
 
-      const {isSuccess, html, error } = await createViteServerAndGetHtml({ projectName: config.homeProject, ssrPath, url, devConfig });
+      const { isSuccess, html, error } = await createViteServerAndGetHtml({ projectName: config.homeProject, ssrPath, url, devConfig });
 
       if (isSuccess) {
         res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
