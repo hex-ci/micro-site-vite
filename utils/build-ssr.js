@@ -79,8 +79,8 @@ const main = async () => {
   if (fs.existsSync(myViteConfigPath)) {
     const myViteConfig = (await import(myViteConfigPath)).default;
 
-    clientBuildConfig = myViteConfig(clientBuildConfig);
-    serverBuildConfig = myViteConfig(serverBuildConfig, true);
+    clientBuildConfig = myViteConfig(clientBuildConfig, { mode: 'build', ssrBuild: false });
+    serverBuildConfig = myViteConfig(serverBuildConfig, { mode: 'build', ssrBuild: true });
   }
 
   try {

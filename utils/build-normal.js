@@ -57,7 +57,7 @@ const main = async () => {
   const myViteConfigPath = resolve(path.join('src', normalProjectPath, 'my-vite.config.js'));
 
   if (fs.existsSync(myViteConfigPath)) {
-    buildConfig = (await import(myViteConfigPath)).default(buildConfig);
+    buildConfig = (await import(myViteConfigPath)).default(buildConfig, { mode: 'build', ssrBuild: false });
   }
 
   try {

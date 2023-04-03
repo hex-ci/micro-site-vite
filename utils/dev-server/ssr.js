@@ -80,7 +80,7 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
     const myViteConfigPath = path.join(ssrPath, `${projectName}/my-vite.config.js`);
 
     if (fs.existsSync(myViteConfigPath)) {
-      viteConfig = (await import(myViteConfigPath)).default(viteConfig);
+      viteConfig = (await import(myViteConfigPath)).default(viteConfig, { mode: 'development', ssrBuild: false });
     }
 
     viteServer = await createViteServer({

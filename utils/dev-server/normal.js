@@ -61,7 +61,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
         const myViteConfigPath = path.join(normalPath, `${projectName}/my-vite.config.js`);
 
         if (fs.existsSync(myViteConfigPath)) {
-          viteConfig = (await import(myViteConfigPath)).default(viteConfig);
+          viteConfig = (await import(myViteConfigPath)).default(viteConfig, { mode: 'development', ssrBuild: false });
         }
 
         viteServer = await createViteServer({
