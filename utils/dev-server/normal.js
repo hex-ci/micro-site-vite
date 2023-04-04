@@ -43,7 +43,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
             hmr: {
               path: `/__ws__`,
               port,
-              clientPort: devConfig.port
+              clientPort: devConfig.clientPort
             },
             watch: {
               usePolling: true,

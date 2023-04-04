@@ -62,7 +62,7 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
         hmr: {
           path: `/__ws__`,
           port,
-          clientPort: devConfig.port
+          clientPort: devConfig.clientPort
         },
         watch: {
           usePolling: true,

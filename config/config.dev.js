@@ -26,8 +26,9 @@ export default async function getConfig() {
   const config = (await import('./config.js')).default;
 
   return {
-    port: config.port || 5173,
     host: config.host || '127.0.0.1',
+    port: config.port || 5173,
+    clientPort: config.clientPort || config.port,
     baseApiUrl: config.baseApiUrl,
     root: rootPath,
 
