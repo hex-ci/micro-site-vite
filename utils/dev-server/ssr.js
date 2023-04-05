@@ -42,7 +42,7 @@ const searchFolderFromUrl = (url, rootPath) => {
   return subPath;
 }
 
-const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig }) => {
+const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig, request }) => {
   // 准备 vite server
 
   let viteServer;
@@ -54,6 +54,24 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
     const port = await getPort();
     const defaultViteConfig = (await loadConfigFromFile()).config;
 
+    let clientPort;
+
+    if (devConfig.clientPort) {
+      clientPort = devConfig.clientPort;
+    }
+    else if (request.headers['x-forwarded-port']) {
+      clientPort = request.headers['x-forwarded-port'];
+    }
+    else if (request.headers['x-forwarded-scheme'] == 'http') {
+      clientPort = 80;
+    }
+    else if (request.headers['x-forwarded-scheme'] == 'https') {
+      clientPort = 443;
+    }
+    else {
+      clientPort = devConfig.port;
+    }
+
     let viteConfig = mergeConfig(defaultViteConfig, {
       base: `/__micro-site-ssr__/${projectName}/__`,
       cacheDir: `node_modules/.vite/micro-site-cache/ssr/${projectName}`,
@@ -62,7 +80,7 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
         hmr: {
           path: `/__ws__`,
           port,
-          clientPort: devConfig.clientPort
+          clientPort
         },
         watch: {
           usePolling: true,
@@ -148,7 +166,7 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         return next();
       }
 
-      const { isSuccess, html, error } = await createViteServerAndGetHtml({ projectName, ssrPath, url, devConfig });
+      const { isSuccess, html, error } = await createViteServerAndGetHtml({ projectName, ssrPath, url, devConfig, request: req });
 
       if (isSuccess) {
         res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
@@ -184,7 +202,7 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         return next();
       }
 
-      const { isSuccess, html, error } = await createViteServerAndGetHtml({ projectName: config.homeProject, ssrPath, url, devConfig });
+      const { isSuccess, html, error } = await createViteServerAndGetHtml({ projectName: config.homeProject, ssrPath, url, devConfig, request: req });
 
       if (isSuccess) {
         res.status(200).set({ 'Content-Type': 'text/html' }).end(html);

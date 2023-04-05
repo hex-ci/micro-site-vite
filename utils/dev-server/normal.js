@@ -35,6 +35,24 @@ export default function getMiddleware({ devConfig, server } = {}) {
         const port = await getPort();
         const defaultViteConfig = (await loadConfigFromFile()).config;
 
+        let clientPort;
+
+        if (devConfig.clientPort) {
+          clientPort = devConfig.clientPort;
+        }
+        else if (req.headers['x-forwarded-port']) {
+          clientPort = req.headers['x-forwarded-port'];
+        }
+        else if (req.headers['x-forwarded-scheme'] == 'http') {
+          clientPort = 80;
+        }
+        else if (req.headers['x-forwarded-scheme'] == 'https') {
+          clientPort = 443;
+        }
+        else {
+          clientPort = devConfig.port;
+        }
+
         let viteConfig = mergeConfig(defaultViteConfig, {
           base: `/__micro-site-normal__/${projectName}/__`,
           cacheDir: `node_modules/.vite/micro-site-cache/normal/${projectName}`,
@@ -43,7 +61,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
             hmr: {
               path: `/__ws__`,
               port,
-              clientPort: devConfig.clientPort
+              clientPort
             },
             watch: {
               usePolling: true,
