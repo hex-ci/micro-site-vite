@@ -56,7 +56,7 @@ export default async function createServer({ app, server }) {
   app.use(express.static(devConfig.publicPath));
 
   // 用于非 SSR 的中间件
-  app.use(getNormalRouter({ devConfig, server}));
+  app.use(getNormalRouter({ devConfig, server }));
 
   // 用于 SSR 的中间件
   app.use(getSsrRouter({ devConfig, server }));
