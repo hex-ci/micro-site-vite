@@ -67,8 +67,6 @@ dist/
 .stfolder
 .stignore
 
-.vscode/
-
 .DS_Store
 
 /config/config.js
