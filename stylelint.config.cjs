@@ -3,7 +3,7 @@ module.exports = {
     'stylelint-config-recommended-scss',
     'stylelint-config-rational-order'
   ],
-  ignoreFiles: ['**/*.{js,cjs,ts,tsx,svg,md}', 'node_modules/.*/**', 'dist/**', 'LICENSE'],
+  ignoreFiles: ['**/*.{js,cjs,ts,tsx,svg,md}', 'dist/**', '.*', 'node_modules/.*/**'],
   overrides: [
     {
       files: ['**/*.{vue,html}'],
@@ -65,6 +65,12 @@ module.exports = {
       true,
       {
         ignorePseudoElements: ['v-deep']
+      }
+    ],
+    'selector-pseudo-class-no-unknown': [
+      true,
+      {
+        ignorePseudoClasses: ['deep']
       }
     ],
     'color-hex-length': 'short'

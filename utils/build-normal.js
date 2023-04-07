@@ -6,6 +6,8 @@ import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
 import renameHtml from './vite-plugin-rename-html.js';
+import uploadAlioss from './vite-plugin-upload-alioss.js';
+import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 
 import serverConfig from '../server/config/index.js';
 
@@ -39,7 +41,23 @@ const main = async () => {
   const defaultConfig = (await loadConfigFromFile()).config;
 
   let buildConfig = mergeConfig(defaultConfig, {
-    plugins: [renameHtml()],
+    plugins: [renameHtml(), ViteImageOptimizer({
+      png: {
+        quality: 80
+      },
+      jpeg: {
+        quality: 80
+      },
+      jpg: {
+        quality: 80
+      }
+    }), process.env.MICRO_SITE_USE_CDN === 'yes' && uploadAlioss({
+      oss: {
+        ...devConfig.ossOptions,
+        urlPrefix: devConfig.cdnUrlPrefix
+      },
+      asset: 'dist'
+    })],
     base: `${devConfig.cdnUrlPrefix}${normalProjectPath}/`,
     resolve: {
       alias: {
@@ -66,14 +84,17 @@ const main = async () => {
       ...buildConfig
     });
 
-    await cpy([resolve(`dist/${normalProjectPath}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${normalProjectPath}`));
+    if (!/^http/i.test(devConfig.cdnUrlPrefix)) {
+      await cpy([resolve(`dist/${normalProjectPath}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${normalProjectPath}`));
+    }
     await deleteAsync([resolve(`dist/${normalProjectPath}/**/*`), '!**/*.html']);
     await cpy(resolve(`src/${normalProjectPath}/server/**/*.js`), resolve(`dist/${normalProjectPath}/server`));
 
     await cpy(resolve('public/**'), resolve('dist/public'));
     await cpy(resolve('server/**'), resolve('dist/server'));
     await cpy([
-      resolve('package.json')
+      resolve('package.json'),
+      resolve('pnpm-lock.yaml')
     ], resolve('dist'));
   }
   catch (e) {

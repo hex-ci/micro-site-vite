@@ -6,6 +6,8 @@ import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
 import renameHtml from './vite-plugin-rename-html.js';
+import uploadAlioss from './vite-plugin-upload-alioss.js';
+import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 
 import serverConfig from '../server/config/index.js';
 
@@ -41,7 +43,23 @@ const main = async () => {
   const serverViteConfig = (await loadConfigFromFile()).config;
 
   let clientBuildConfig = mergeConfig(clientViteConfig, {
-    plugins: [renameHtml()],
+    plugins: [renameHtml(), ViteImageOptimizer({
+      png: {
+        quality: 80
+      },
+      jpeg: {
+        quality: 80
+      },
+      jpg: {
+        quality: 80
+      }
+    }), process.env.MICRO_SITE_USE_CDN === 'yes' && uploadAlioss({
+      oss: {
+        ...devConfig.ossOptions
+      },
+      urlPrefix: devConfig.cdnUrlPrefix,
+      asset: 'dist'
+    })],
     base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
     resolve: {
       alias: {
@@ -98,7 +116,9 @@ const main = async () => {
       ...serverBuildConfig
     });
 
-    await cpy([resolve(`dist/${ssrPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**'], resolve(`dist/${serverConfig.resUrlPrefix}/${ssrPath}`));
+    if (!/^http/i.test(devConfig.cdnUrlPrefix)) {
+      await cpy([resolve(`dist/${ssrPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**'], resolve(`dist/${serverConfig.resUrlPrefix}/${ssrPath}`));
+    }
     await deleteAsync([resolve(`dist/${ssrPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**']);
 
     await cpy([resolve(`src/${ssrPath}/*.html`), '!**/index.html'], resolve(`dist/${ssrPath}`));
@@ -106,7 +126,8 @@ const main = async () => {
     await cpy(resolve('public/**'), resolve('dist/public'));
     await cpy(resolve('server/**'), resolve('dist/server'));
     await cpy([
-      resolve('package.json')
+      resolve('package.json'),
+      resolve('pnpm-lock.yaml')
     ], resolve('dist'));
   }
   catch (e) {
