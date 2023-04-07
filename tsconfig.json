@@ -2,11 +2,13 @@
   "extends": "@vue/tsconfig/tsconfig.web.json",
   "include": ["src/vite-env.d.ts", "src/**/*.vue", "src/**/*.ts", "src/**/*.vue.ts"],
   "compilerOptions": {
-    "ignoreDeprecations": "5.0",
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ssr/*": ["./src/ssr/*"],
+      "@normal/*": ["./src/site/*"],
+      "@static/*": ["./src/static/*"]
     }
   },
 
