@@ -5,6 +5,7 @@ import cbT from 'cb-template';
 import { createServer as createViteServer, loadConfigFromFile, mergeConfig } from 'vite';
 import getPort from 'get-port';
 import { WebSocket, WebSocketServer } from 'ws';
+import checker from 'vite-plugin-checker';
 
 import config from '../../server/config/index.js';
 
@@ -72,7 +73,20 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
       clientPort = devConfig.port;
     }
 
+    const projectFullPath = path.join(devConfig.projectPath, config.ssrUrlPrefix, projectName);
+
     let viteConfig = mergeConfig(defaultViteConfig, {
+      plugins: [
+        checker({
+          vueTsc: true,
+          eslint: {
+            lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`
+          },
+          stylelint: {
+            lintCommand: `stylelint "${projectFullPath}/**/*.{scss,css,vue}" --quiet-deprecation-warnings`
+          }
+        })
+      ],
       base: `/__micro-site-ssr__/${projectName}/__`,
       cacheDir: `node_modules/.vite/micro-site-cache/ssr/${projectName}`,
       server: {
@@ -90,7 +104,7 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
       appType: 'custom',
       resolve: {
         alias: {
-          '@current': path.join(devConfig.projectPath, config.ssrUrlPrefix, projectName)
+          '@current': projectFullPath
         }
       }
     });

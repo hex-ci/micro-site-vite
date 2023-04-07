@@ -8,6 +8,7 @@ import { deleteAsync } from 'del';
 import renameHtml from './vite-plugin-rename-html.js';
 import uploadAlioss from './vite-plugin-upload-alioss.js';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
+import checker from 'vite-plugin-checker';
 
 import serverConfig from '../server/config/index.js';
 
@@ -26,10 +27,11 @@ const main = async () => {
   }
 
   const projectName = argv[2];
-  const ssrPath = `${serverConfig.ssrUrlPrefix}/${projectName}`;
+  const ssrProjectPath = `${serverConfig.ssrUrlPrefix}/${projectName}`;
+  const ssrProjectFullPath = resolve(`src/${ssrProjectPath}`);
 
   try {
-    fs.accessSync(resolve(`src/${ssrPath}`));
+    fs.accessSync(ssrProjectFullPath);
   }
   catch (e) {
     console.log(chalk.yellow('\n项目不存在！\n'));
@@ -43,56 +45,69 @@ const main = async () => {
   const serverViteConfig = (await loadConfigFromFile()).config;
 
   let clientBuildConfig = mergeConfig(clientViteConfig, {
-    plugins: [renameHtml(), ViteImageOptimizer({
-      png: {
-        quality: 80
-      },
-      jpeg: {
-        quality: 80
-      },
-      jpg: {
-        quality: 80
-      }
-    }), process.env.MICRO_SITE_USE_CDN === 'yes' && uploadAlioss({
-      oss: {
-        ...devConfig.ossOptions
-      },
-      urlPrefix: devConfig.cdnUrlPrefix,
-      asset: 'dist'
-    })],
-    base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
+    plugins: [
+      checker({
+        vueTsc: true,
+        eslint: {
+          lintCommand: `eslint "${ssrProjectFullPath}/**/*.{ts,tsx,vue,js}"`
+        },
+        stylelint: {
+          lintCommand: `stylelint "${ssrProjectFullPath}/**/*.{scss,css,vue}" --quiet-deprecation-warnings`
+        }
+      }),
+      renameHtml(),
+      ViteImageOptimizer({
+        png: {
+          quality: 80
+        },
+        jpeg: {
+          quality: 80
+        },
+        jpg: {
+          quality: 80
+        }
+      }),
+      process.env.MICRO_SITE_USE_CDN === 'yes' && uploadAlioss({
+        oss: {
+          ...devConfig.ossOptions
+        },
+        urlPrefix: devConfig.cdnUrlPrefix,
+        asset: 'dist'
+      })
+    ],
+    base: `${devConfig.cdnUrlPrefix}${ssrProjectPath}/`,
     resolve: {
       alias: {
-        '@current': resolve(`src/${ssrPath}`)
+        '@current': ssrProjectFullPath
       }
     },
     build: {
       ssrManifest: true,
-      outDir: `dist/${ssrPath}`,
+      outDir: `dist/${ssrProjectPath}`,
       rollupOptions: {
-        input: `src/${ssrPath}/index.html`
+        input: `src/${ssrProjectPath}/index.html`
       }
     }
   });
 
   let serverBuildConfig = mergeConfig(serverViteConfig, {
-    base: `${devConfig.cdnUrlPrefix}${ssrPath}/`,
+    base: `${devConfig.cdnUrlPrefix}${ssrProjectPath}/`,
     resolve: {
       alias: {
-        '@current': resolve(`src/${ssrPath}`)
+        '@current': ssrProjectFullPath
       }
     },
     build: {
       ssr: true,
       emptyOutDir: false,
-      outDir: `dist/${ssrPath}/server`,
+      outDir: `dist/${ssrProjectPath}/server`,
       rollupOptions: {
-        input: `src/${ssrPath}/entry-server.js`
+        input: `src/${ssrProjectPath}/entry-server.js`
       }
     }
   });
 
-  const myViteConfigPath = resolve(path.join('src', ssrPath, 'my-vite.config.js'));
+  const myViteConfigPath = resolve(path.join('src', ssrProjectPath, 'my-vite.config.js'));
 
   if (fs.existsSync(myViteConfigPath)) {
     const myViteConfig = (await import(myViteConfigPath)).default;
@@ -117,11 +132,11 @@ const main = async () => {
     });
 
     if (!/^http/i.test(devConfig.cdnUrlPrefix)) {
-      await cpy([resolve(`dist/${ssrPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**'], resolve(`dist/${serverConfig.resUrlPrefix}/${ssrPath}`));
+      await cpy([resolve(`dist/${ssrProjectPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**'], resolve(`dist/${serverConfig.resUrlPrefix}/${ssrProjectPath}`));
     }
-    await deleteAsync([resolve(`dist/${ssrPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**']);
+    await deleteAsync([resolve(`dist/${ssrProjectPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**']);
 
-    await cpy([resolve(`src/${ssrPath}/*.html`), '!**/index.html'], resolve(`dist/${ssrPath}`));
+    await cpy([resolve(`src/${ssrProjectPath}/*.html`), '!**/index.html'], resolve(`dist/${ssrProjectPath}`));
 
     await cpy(resolve('public/**'), resolve('dist/public'));
     await cpy(resolve('server/**'), resolve('dist/server'));

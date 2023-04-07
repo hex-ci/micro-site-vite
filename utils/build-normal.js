@@ -8,6 +8,7 @@ import { deleteAsync } from 'del';
 import renameHtml from './vite-plugin-rename-html.js';
 import uploadAlioss from './vite-plugin-upload-alioss.js';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
+import checker from 'vite-plugin-checker';
 
 import serverConfig from '../server/config/index.js';
 
@@ -27,9 +28,10 @@ const main = async () => {
 
   const projectName = argv[2];
   const normalProjectPath = `${serverConfig.normalUrlPrefix}/${projectName}`;
+  const normalProjectFullPath = resolve(`src/${normalProjectPath}`);
 
   try {
-    fs.accessSync(resolve(`src/${normalProjectPath}`));
+    fs.accessSync(normalProjectFullPath);
   }
   catch (e) {
     console.log(chalk.yellow('\n项目不存在！\n'));
@@ -41,27 +43,40 @@ const main = async () => {
   const defaultConfig = (await loadConfigFromFile()).config;
 
   let buildConfig = mergeConfig(defaultConfig, {
-    plugins: [renameHtml(), ViteImageOptimizer({
-      png: {
-        quality: 80
-      },
-      jpeg: {
-        quality: 80
-      },
-      jpg: {
-        quality: 80
-      }
-    }), process.env.MICRO_SITE_USE_CDN === 'yes' && uploadAlioss({
-      oss: {
-        ...devConfig.ossOptions,
-        urlPrefix: devConfig.cdnUrlPrefix
-      },
-      asset: 'dist'
-    })],
+    plugins: [
+      checker({
+        vueTsc: true,
+        eslint: {
+          lintCommand: `eslint "${normalProjectFullPath}/**/*.{ts,tsx,vue,js}"`
+        },
+        stylelint: {
+          lintCommand: `stylelint "${normalProjectFullPath}/**/*.{scss,css,vue}" --quiet-deprecation-warnings`
+        }
+      }),
+      renameHtml(),
+      ViteImageOptimizer({
+        png: {
+          quality: 80
+        },
+        jpeg: {
+          quality: 80
+        },
+        jpg: {
+          quality: 80
+        }
+      }),
+      process.env.MICRO_SITE_USE_CDN === 'yes' && uploadAlioss({
+        oss: {
+          ...devConfig.ossOptions,
+          urlPrefix: devConfig.cdnUrlPrefix
+        },
+        asset: 'dist'
+      })
+    ],
     base: `${devConfig.cdnUrlPrefix}${normalProjectPath}/`,
     resolve: {
       alias: {
-        '@current': resolve(`src/${normalProjectPath}`)
+        '@current': normalProjectFullPath
       }
     },
     build: {

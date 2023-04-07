@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import getPort from 'get-port';
 import path from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
+import checker from 'vite-plugin-checker';
 
 import { getMiddleware as getNormalMiddleware, getProjectName } from '../../server/router/normal.js';
 import config from '../../server/config/index.js';
@@ -53,7 +54,20 @@ export default function getMiddleware({ devConfig, server } = {}) {
           clientPort = devConfig.port;
         }
 
+        const projectFullPath = path.join(normalPath, projectName);
+
         let viteConfig = mergeConfig(defaultViteConfig, {
+          plugins: [
+            checker({
+              vueTsc: true,
+              eslint: {
+                lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`
+              },
+              stylelint: {
+                lintCommand: `stylelint "${projectFullPath}/**/*.{scss,css,vue}" --quiet-deprecation-warnings`
+              }
+            })
+          ],
           base: `/__micro-site-normal__/${projectName}/__`,
           cacheDir: `node_modules/.vite/micro-site-cache/normal/${projectName}`,
           server: {
@@ -71,7 +85,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
           appType: 'custom',
           resolve: {
             alias: {
-              '@current': path.join(normalPath, projectName)
+              '@current': projectFullPath
             }
           }
         });
