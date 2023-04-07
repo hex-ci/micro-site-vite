@@ -64,7 +64,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
                 lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`
               },
               stylelint: {
-                lintCommand: `stylelint "${projectFullPath}/**/*.{scss,css,vue}" --quiet-deprecation-warnings`
+                lintCommand: `stylelint ${projectFullPath}/**/*.{scss,css,vue} --quiet-deprecation-warnings`
               }
             })
           ],

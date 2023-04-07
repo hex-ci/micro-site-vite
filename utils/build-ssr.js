@@ -52,7 +52,7 @@ const main = async () => {
           lintCommand: `eslint "${ssrProjectFullPath}/**/*.{ts,tsx,vue,js}"`
         },
         stylelint: {
-          lintCommand: `stylelint "${ssrProjectFullPath}/**/*.{scss,css,vue}" --quiet-deprecation-warnings`
+          lintCommand: `stylelint ${ssrProjectFullPath}/**/*.{scss,css,vue} --quiet-deprecation-warnings`
         }
       }),
       renameHtml(),
