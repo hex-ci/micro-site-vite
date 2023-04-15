@@ -36,7 +36,7 @@ const searchControllerFolder = async (rootPath, searchArray, searchIndex = 2) =>
 // 获取项目信息，获取不到返回 false
 export const getProjectInfo = async (url, projectRootPath) => {
   if (url === '/') {
-    // 首页项目不可能是 normal 类型的项目
+    // 根 URL 不可能是 normal 类型的项目
     return false;
   }
 

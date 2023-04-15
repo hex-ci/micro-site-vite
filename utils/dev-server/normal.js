@@ -19,7 +19,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
     const projectRootPath = req.app.locals.serverConfig.normalProjectPath;
 
     if (url.startsWith('/__micro-site-normal__/')) {
-      const match = /\/__micro-site-normal__\/(.+?)\/__\//i.exec(url);
+      const match = /^\/__micro-site-normal__\/(.+?)\/__\//i.exec(url);
 
       if (!match) {
         return next();
@@ -110,7 +110,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
           }
         });
 
-        const myViteConfigPath = join(projectRootPath, `${projectInfo.projectName}/my-vite.config.js`);
+        const myViteConfigPath = join(projectFullPath, 'my-vite.config.js');
 
         if (existsSync(myViteConfigPath)) {
           viteConfig = (await import(myViteConfigPath)).default(viteConfig, { mode: 'development', ssrBuild: false });
@@ -134,7 +134,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
 
   // 处理 WebSocket 转发
   server.on('upgrade', function upgrade(request, socket, head) {
-    const match = /\/__micro-site-normal__\/(.+?)\/__\/__ws__/i.exec(request.url);
+    const match = /^\/__micro-site-normal__\/(.+?)\/__\/__ws__/i.exec(request.url);
 
     // 不是我的请求，忽略
     if (!match) {

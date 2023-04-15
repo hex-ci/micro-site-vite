@@ -146,8 +146,8 @@ export default function getMiddleware({ devConfig, server } = {}) {
     const url = req.originalUrl;
     const projectRootPath = req.app.locals.serverConfig.ssrProjectPath;
 
-    if (url.indexOf(`/__micro-site-ssr__/`) === 0) {
-      const match = /\/__micro-site-ssr__\/(.+?)\/__\//i.exec(url);
+    if (url.startsWith(`/__micro-site-ssr__/`)) {
+      const match = /^\/__micro-site-ssr__\/(.+?)\/__\//i.exec(url);
 
       if (!match) {
         return next();
@@ -208,7 +208,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
 
   // 处理 WebSocket 转发
   server.on('upgrade', function upgrade(request, socket, head) {
-    const match = /\/__micro-site-ssr__\/(.+?)\/__\/__ws__/i.exec(request.url);
+    const match = /^\/__micro-site-ssr__\/(.+?)\/__\/__ws__/i.exec(request.url);
 
     // 不是我的请求，忽略
     if (!match) {

@@ -6,7 +6,7 @@ import { fileExists, trimSlash } from '../common/index.js';
 
 import config from '../config/index.js';
 
-// 查找文件夹
+// 查找项目文件夹
 const searchProjectFolder = async (rootPath, searchArray, searchIndex = 2) => {
   if (searchIndex > searchArray.length) {
     // 所有目录都存在
@@ -30,6 +30,7 @@ const searchProjectFolder = async (rootPath, searchArray, searchIndex = 2) => {
   return searchArray.slice(0, searchIndex - 1).join('/');
 }
 
+// 获取项目信息，获取不到返回 false
 export const getProjectInfo = async (url, projectRootPath, isHomeProject = false) => {
   let projectName;
 
@@ -38,7 +39,7 @@ export const getProjectInfo = async (url, projectRootPath, isHomeProject = false
   }
   else {
     if (url === '/') {
-      // 没有首页标志，不允许使用首页 URL
+      // 没有 home 标志，不允许使用根 URL
       return false;
     }
 
@@ -90,6 +91,7 @@ export const getMiddleware = () => {
     }
 
     let projectInfo;
+
     // 先检查非 home 项目
     projectInfo = await getProjectInfo(
       pathname,
