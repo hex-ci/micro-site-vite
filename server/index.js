@@ -1,6 +1,6 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import http from 'node:http';
+import { createServer as createHttpServer } from 'node:http';
 
 import express from 'express';
 import cookieParser from 'cookie-parser';
@@ -58,7 +58,7 @@ async function createServer() {
   cbT.leftDelimiter = '{%';
   cbT.rightDelimiter = '%}';
 
-  const server = http.createServer(app);
+  const server = createHttpServer(app);
 
   if (isDev) {
     const createDevServer = (await import('../utils/dev-server/index.js')).default;
