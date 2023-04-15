@@ -18,10 +18,10 @@ export default {
   // 首页使用的项目，只能是 SSR 项目
   homeProject: 'home',
 
-  // 常规项目前缀，会影响 URL 和文件存储，慎重修改
-  normalFolderPrefix: 'site',
+  // 常规项目前缀，会影响文件存储，慎重修改
+  normalFolderPrefix: 'normal',
 
-  // SSR 项目前缀，会影响 URL 和文件存储，慎重修改
+  // SSR 项目前缀，会影响文件存储，慎重修改
   ssrFolderPrefix: 'ssr',
 
   // 资源不使用 OSS 的话，需要配置
