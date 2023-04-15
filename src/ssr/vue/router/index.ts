@@ -10,8 +10,8 @@ export function createRouter() {
     // use appropriate history implementation for server/client
     // import.meta.env.SSR is injected by Vite.
     history: import.meta.env.SSR
-      ? createMemoryHistory('/ssr/vue')
-      : createWebHistory('/ssr/vue'),
+      ? createMemoryHistory('/vue')
+      : createWebHistory('/vue'),
     routes: [
       {
         path: '/',

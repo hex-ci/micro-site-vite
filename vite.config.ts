@@ -10,8 +10,8 @@ export default defineConfig({
   plugins: [vue(), vueJsx()],
   resolve: {
     alias: {
-      '@normal': fileURLToPath(new URL(`./src/${serverConfig.normalUrlPrefix}`, import.meta.url)),
-      '@ssr': fileURLToPath(new URL(`./src/${serverConfig.ssrUrlPrefix}`, import.meta.url)),
+      '@normal': fileURLToPath(new URL(`./src/${serverConfig.normalFolderPrefix}`, import.meta.url)),
+      '@ssr': fileURLToPath(new URL(`./src/${serverConfig.ssrFolderPrefix}`, import.meta.url)),
       '@static': fileURLToPath(new URL(`./src/static`, import.meta.url))
     }
   },

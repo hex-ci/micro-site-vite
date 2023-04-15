@@ -1,6 +1,7 @@
+import { stat } from 'node:fs/promises';
 import cbT from 'cb-template';
 
-class BaseController {
+export class BaseController {
   constructor({ req, res, next, projectName, viteServer }) {
     this.$ctx = {
       request: req,
@@ -14,7 +15,7 @@ class BaseController {
   }
 
   $render(name, data = {}, options = {}) {
-    cbT.renderFile(`${this.$ctx.request.app.locals.serverConfig.normalUrlPrefix}/${this.$projectName}/${name.replace(/\.html$/i, '')}.html`, { ...this.$ctx.response.locals, ...data }, options, async (err, content) => {
+    cbT.renderFile(`${this.$ctx.request.app.locals.serverConfig.normalFolderPrefix}/${this.$projectName}/${name.replace(/\.html$/i, '')}.html`, { ...this.$ctx.response.locals, ...data }, options, async (err, content) => {
       if (err) {
         if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
           this.$ctx.next();
@@ -37,7 +38,7 @@ class BaseController {
 }
 
 // 用于静态输出的控制器
-class StaticController extends BaseController {
+export class StaticController extends BaseController {
 
   // 首页
   main(template) {
@@ -45,7 +46,8 @@ class StaticController extends BaseController {
   }
 }
 
-export {
-  BaseController,
-  StaticController
-};
+export const trimSlash = (str) => {
+  return str.replace(/^\/+|\/+$/g, '');
+}
+
+export const fileExists = async path => !!(await stat(path).catch(() => false));

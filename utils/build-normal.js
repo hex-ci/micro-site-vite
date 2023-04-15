@@ -1,14 +1,16 @@
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import { resolve as pathResolve, join } from 'node:path';
+import { accessSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { build, loadConfigFromFile, mergeConfig } from 'vite';
 import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
-import renameHtml from './vite-plugin-rename-html.js';
-import uploadAlioss from './vite-plugin-upload-alioss.js';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 import checker from 'vite-plugin-checker';
+
+import renameHtml from './vite-plugin-rename-html.js';
+import uploadAlioss from './vite-plugin-upload-alioss.js';
 
 import serverConfig from '../server/config/index.js';
 
@@ -16,7 +18,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const argv = process.argv;
 
 const resolve = (str) => {
-  return path.resolve(__dirname, `../${str}`);
+  return pathResolve(__dirname, `../${str}`);
 }
 
 const main = async () => {
@@ -27,11 +29,11 @@ const main = async () => {
   }
 
   const projectName = argv[2];
-  const normalProjectPath = `${serverConfig.normalUrlPrefix}/${projectName}`;
+  const normalProjectPath = `${serverConfig.normalFolderPrefix}/${projectName}`;
   const normalProjectFullPath = resolve(`src/${normalProjectPath}`);
 
   try {
-    fs.accessSync(normalProjectFullPath);
+    accessSync(normalProjectFullPath);
   }
   catch (e) {
     console.log(chalk.yellow('\n项目不存在！\n'));
@@ -87,9 +89,9 @@ const main = async () => {
     }
   });
 
-  const myViteConfigPath = resolve(path.join('src', normalProjectPath, 'my-vite.config.js'));
+  const myViteConfigPath = resolve(join('src', normalProjectPath, 'my-vite.config.js'));
 
-  if (fs.existsSync(myViteConfigPath)) {
+  if (existsSync(myViteConfigPath)) {
     buildConfig = (await import(myViteConfigPath)).default(buildConfig, { mode: 'build', ssrBuild: false });
   }
 
@@ -99,7 +101,7 @@ const main = async () => {
       ...buildConfig
     });
 
-    if (!/^http/i.test(devConfig.cdnUrlPrefix)) {
+    if (process.env.MICRO_SITE_USE_CDN !== 'yes') {
       await cpy([resolve(`dist/${normalProjectPath}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${normalProjectPath}`));
     }
     await deleteAsync([resolve(`dist/${normalProjectPath}/**/*`), '!**/*.html']);

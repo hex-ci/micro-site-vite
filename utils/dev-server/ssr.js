@@ -1,12 +1,14 @@
 import { readFile } from 'node:fs/promises';
-import fs from 'node:fs';
-import path from 'node:path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import cbT from 'cb-template';
 import { createServer as createViteServer, loadConfigFromFile, mergeConfig } from 'vite';
 import getPort from 'get-port';
 import { WebSocket, WebSocketServer } from 'ws';
 import checker from 'vite-plugin-checker';
 
+import { getProjectInfo } from '../../server/router/ssr.js';
 import config from '../../server/config/index.js';
 
 const viteServerCache = {};
@@ -14,42 +16,13 @@ const webSocketServerCache = {};
 const webSocketClientCache = {};
 const processedRequests = new Set();
 
-const searchFolderFromUrl = (url, rootPath) => {
-  const urlArray = url.split('/');
-  let subPath = '';
-
-  if (url === '/' || urlArray.length < 2) {
-    return '';
-  }
-
-  for (let index = 2; index <= urlArray.length; index++) {
-    subPath = urlArray.slice(1, index).join('/');
-
-    let stat;
-
-    try {
-      stat = fs.statSync(path.join(rootPath, subPath));
-    }
-    catch (e) {
-      stat = false;
-    }
-
-    if (stat === false || !stat.isDirectory()) {
-      subPath = urlArray.slice(1, index - 1).join('/');
-      break;
-    }
-  }
-
-  return subPath;
-}
-
-const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig, request }) => {
+const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request }) => {
   // 准备 vite server
 
   let viteServer;
 
-  if (viteServerCache[projectName]) {
-    viteServer = viteServerCache[projectName];
+  if (viteServerCache[projectInfo.projectName]) {
+    viteServer = viteServerCache[projectInfo.projectName];
   }
   else {
     const port = await getPort();
@@ -73,12 +46,12 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
       clientPort = devConfig.port;
     }
 
-    const projectFullPath = path.join(devConfig.projectPath, config.ssrUrlPrefix, projectName);
+    const projectFullPath = join(devConfig.projectPath, config.ssrFolderPrefix, projectInfo.projectName);
 
     let viteConfig = mergeConfig(defaultViteConfig, {
       plugins: [
         checker({
-          vueTsc: true,
+          // vueTsc: true,
           eslint: {
             lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`
           },
@@ -87,8 +60,8 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
           }
         })
       ],
-      base: `/__micro-site-ssr__/${projectName}/__`,
-      cacheDir: `node_modules/.vite/micro-site-cache/ssr/${projectName}`,
+      base: `/__micro-site-ssr__/${projectInfo.projectName}/__`,
+      cacheDir: `node_modules/.vite/micro-site-cache/ssr/${projectInfo.projectName}`,
       server: {
         middlewareMode: true,
         hmr: {
@@ -109,9 +82,9 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
       }
     });
 
-    const myViteConfigPath = path.join(ssrPath, `${projectName}/my-vite.config.js`);
+    const myViteConfigPath = join(projectFullPath, 'my-vite.config.js');
 
-    if (fs.existsSync(myViteConfigPath)) {
+    if (existsSync(myViteConfigPath)) {
       viteConfig = (await import(myViteConfigPath)).default(viteConfig, { mode: 'development', ssrBuild: false });
     }
 
@@ -120,18 +93,18 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
       ...viteConfig
     });
 
-    viteServerCache[projectName] = viteServer;
+    viteServerCache[projectInfo.projectName] = viteServer;
   }
 
   // 准备 html
 
   try {
-    const render = (await viteServer.ssrLoadModule(path.join(ssrPath, `${projectName}/entry-server.js`))).render;
+    const render = (await viteServer.ssrLoadModule(projectInfo.serverEntry)).render;
     const manifest = {};
 
     const templateData = await render({ url, manifest });
 
-    let html = await readFile(path.join(ssrPath, `${projectName}/index.html`), 'utf-8');
+    let html = await readFile(projectInfo.template, 'utf-8');
     html = await viteServer.transformIndexHtml(url, html);
     html = cbT.render(html, templateData);
 
@@ -167,30 +140,12 @@ const createViteServerAndGetHtml = async ({ projectName, ssrPath, url, devConfig
   }
 }
 
-export default function getMiddleware({ devConfig, server, isHomeProject = false } = {}) {
+export default function getMiddleware({ devConfig, server } = {}) {
   const middleware = async (req, res, next) => {
     const url = req.originalUrl;
-    const ssrPath = req.app.locals.serverConfig.ssrProjectPath;
+    const projectRootPath = req.app.locals.serverConfig.ssrProjectPath;
 
-    if (url.indexOf(`/${config.ssrUrlPrefix}/`) === 0) {
-      const realPath = `/${path.relative(`/${config.ssrUrlPrefix}`, url)}`;
-      const projectName = searchFolderFromUrl(realPath, `${devConfig.projectPath}/${config.ssrUrlPrefix}`);
-
-      if (!projectName) {
-        return next();
-      }
-
-      const { isSuccess, html, error } = await createViteServerAndGetHtml({ projectName, ssrPath, url, devConfig, request: req });
-
-      if (isSuccess) {
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
-      }
-      else {
-        console.log(error);
-        next(error);
-      }
-    }
-    else if (url.indexOf(`/__micro-site-ssr__/`) === 0) {
+    if (url.indexOf(`/__micro-site-ssr__/`) === 0) {
       const match = /\/__micro-site-ssr__\/(.+?)\/__\//i.exec(url);
 
       if (!match) {
@@ -206,17 +161,39 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         next();
       }
     }
-    else if (isHomeProject) {
-      const ssrUrlPrefix = config.ssrUrlPrefix;
-      const normalUrlPrefix = config.normalUrlPrefix;
-      const resUrlPrefix = config.resUrlPrefix;
-      const reg = new RegExp(`^/(${ssrUrlPrefix}|${normalUrlPrefix}|${resUrlPrefix}|__micro-site-ssr__|__micro-site-normal__)(/|$)`);
+    else if (url.startsWith('/__micro-site-normal__/')) {
+      // normal 项目跳过
+      next();
+    }
+    else {
+      let projectInfo;
 
-      if (reg.test(url)) {
-        return next();
+      // 先检查非 home 项目
+      projectInfo = await getProjectInfo(
+        req._parsedOriginalUrl.pathname,
+        projectRootPath,
+        false
+      );
+
+      if (!projectInfo) {
+        // 再检查 home 项目
+        projectInfo = await getProjectInfo(
+          req._parsedOriginalUrl.pathname,
+          projectRootPath,
+          true
+        );
+
+        if (!projectInfo) {
+          return next();
+        }
       }
 
-      const { isSuccess, html, error } = await createViteServerAndGetHtml({ projectName: config.homeProject, ssrPath, url, devConfig, request: req });
+      const { isSuccess, html, error } = await createViteServerAndGetHtml({
+        projectInfo,
+        url,
+        devConfig,
+        request: req
+      });
 
       if (isSuccess) {
         res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
@@ -226,77 +203,71 @@ export default function getMiddleware({ devConfig, server, isHomeProject = false
         next(error);
       }
     }
-    else {
-      next();
+  }
+
+  // 处理 WebSocket 转发
+  server.on('upgrade', function upgrade(request, socket, head) {
+    const match = /\/__micro-site-ssr__\/(.+?)\/__\/__ws__/i.exec(request.url);
+
+    // 不是我的请求，忽略
+    if (!match) {
+      return;
     }
-  }
 
-  // 只需要在 ssr 路由监听一次即可，否则会导致多次监听 upgrade 事件，导致异常
-  if (!isHomeProject) {
-    // 处理 WebSocket 转发
-    server.on('upgrade', function upgrade(request, socket, head) {
-      const match = /\/__micro-site-ssr__\/(.+?)\/__\/__ws__/i.exec(request.url);
+    const projectName = match[1];
 
-      // 不是我的请求，忽略
-      if (!match) {
-        return;
-      }
+    if (!viteServerCache[projectName]) {
+      return;
+    }
 
-      const projectName = match[1];
+    const key = request.headers['sec-websocket-key'];
 
-      if (!viteServerCache[projectName]) {
-        return;
-      }
+    if (processedRequests.has(key)) {
+      socket.destroy();
+      return;
+    }
 
-      const key = request.headers['sec-websocket-key'];
+    processedRequests.add(key);
 
-      if (processedRequests.has(key)) {
-        socket.destroy();
-        return;
-      }
+    let wss;
 
-      processedRequests.add(key);
+    if (webSocketServerCache[projectName]) {
+      wss = webSocketServerCache[projectName];
+    }
+    else {
+      wss = new WebSocketServer({ noServer: true });
 
-      let wss;
+      webSocketServerCache[projectName] = wss;
 
-      if (webSocketServerCache[projectName]) {
-        wss = webSocketServerCache[projectName];
-      }
-      else {
-        wss = new WebSocketServer({ noServer: true });
+      wss.on('connection', function connection(ws) {
+        if (webSocketClientCache[projectName]) {
+          webSocketClientCache[projectName].close();
+          webSocketClientCache[projectName] = null;
+        }
 
-        webSocketServerCache[projectName] = wss;
+        const port = viteServerCache[projectName].config.server.hmr.port;
+        const wsProxy = new WebSocket(`ws://127.0.0.1:${port}/__micro-site-ssr__/${projectName}/__/__ws__`);
 
-        wss.on('connection', function connection(ws) {
-          if (webSocketClientCache[projectName]) {
-            webSocketClientCache[projectName].close();
-            webSocketClientCache[projectName] = null;
-          }
+        webSocketClientCache[projectName] = wsProxy;
 
-          const port = viteServerCache[projectName].config.server.hmr.port;
-          const wsProxy = new WebSocket(`ws://127.0.0.1:${port}/__micro-site-ssr__/${projectName}/__/__ws__`);
-
-          webSocketClientCache[projectName] = wsProxy;
-
-          // 将 WebSocket 代理客户端的消息转发到客户端
-          wsProxy.on('message', (message) => {
-            ws.send(message.toString());
-          });
-
-          // 将客户端的消息转发到 WebSocket 代理客户端
-          ws.on('message', (message) => {
-            wsProxy.send(message.toString());
-          });
-
-          ws.on('error', console.error);
+        // 将 WebSocket 代理客户端的消息转发到客户端
+        wsProxy.on('message', (message) => {
+          ws.send(message.toString());
         });
-      }
 
-      wss.handleUpgrade(request, socket, head, (ws, request) => {
-        wss.emit('connection', ws, request);
+        // 将客户端的消息转发到 WebSocket 代理客户端
+        ws.on('message', (message) => {
+          wsProxy.send(message.toString());
+        });
+
+        ws.on('error', console.error);
       });
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws, request) => {
+      wss.emit('connection', ws, request);
     });
-  }
+  });
 
   return middleware;
 }

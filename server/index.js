@@ -1,18 +1,19 @@
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import http from 'node:http';
+
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import bodyParser from 'body-parser';
 import morgan from 'morgan';
-import path from 'path';
 import cbT from 'cb-template';
-import { fileURLToPath } from 'url';
-import http from 'http';
 
-import getNormalRouter from './router/normal.js';
-import getSsrRouter  from './router/ssr.js';
+import { getMiddleware as getNormalMiddleware } from './router/normal.js';
+import { getMiddleware as getSsrMiddleware } from './router/ssr.js';
 
 import config from './config/index.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV !== 'production';
 
 async function createServer() {
@@ -25,12 +26,12 @@ async function createServer() {
   app.locals.serverConfig = {
     serverPath: __dirname,
     baseApiUrl: config.baseApiUrl,
-    ssrUrlPrefix: config.ssrUrlPrefix,
-    normalUrlPrefix: config.normalUrlPrefix,
+    ssrFolderPrefix: config.ssrFolderPrefix,
+    normalFolderPrefix: config.normalFolderPrefix,
     resUrlPrefix: config.resUrlPrefix,
     projectPath: config.projectPath,
-    normalProjectPath: path.join(config.projectPath, config.normalUrlPrefix),
-    ssrProjectPath: path.join(config.projectPath, config.ssrUrlPrefix),
+    normalProjectPath: join(config.projectPath, config.normalFolderPrefix),
+    ssrProjectPath: join(config.projectPath, config.ssrFolderPrefix),
     homeProject: config.homeProject
   };
 
@@ -51,11 +52,11 @@ async function createServer() {
       return callback(null, content);
     });
   });
-  app.set('views', path.resolve(__dirname, 'views'));
+  app.set('views', resolve(__dirname, 'views'));
   app.set('view engine', 'html');
 
-  cbT.leftDelimiter = '{{';
-  cbT.rightDelimiter = '}}';
+  cbT.leftDelimiter = '{%';
+  cbT.rightDelimiter = '%}';
 
   const server = http.createServer(app);
 
@@ -74,13 +75,10 @@ async function createServer() {
     app.use(`/${config.resUrlPrefix}`, express.static(config.resPath));
 
     // 用于非 SSR 的中间件
-    app.use(`/${config.normalUrlPrefix}`, getNormalRouter());
+    app.use(getNormalMiddleware());
 
     // 用于 SSR 的中间件
-    app.use(`/${config.ssrUrlPrefix}`, getSsrRouter());
-
-    // 用于显示首页
-    app.use(getSsrRouter({ isHomeProject: true }));
+    app.use(getSsrMiddleware());
   }
 
   // eslint-disable-next-line no-unused-vars

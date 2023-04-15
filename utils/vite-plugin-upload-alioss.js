@@ -9,7 +9,7 @@ import mime from 'mime';
 import dayjs from 'dayjs';
 import log from 'fancy-log';
 import colors from 'ansi-colors';
-import glob from 'glob';
+import { globSync } from 'glob';
 import _ from 'lodash-es';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -109,55 +109,59 @@ export default function uploadAlioss(options) {
       buildConfig = config.build;
     },
 
-    async closeBundle() {
-      if (!/^http/i.test(baseConfig)) {
-        throw Error('[vite-plugin-upload-alioss] base must be a url');
-      }
-
-      const outDirPath = normalizePath(path.resolve(normalizePath(buildConfig.outDir)));
-      const ssrClient = buildConfig.ssrManifest;
-
-      const files = await glob.sync(
-        outDirPath + '/**/*',
-        {
-          strict: true,
-          nodir: true,
-          dot: true,
-          ignore:
-            // custom ignore
-            options.ignore ? options.ignore :
-            // ssr client ignore
-              ssrClient ? ['**/ssr-manifest.json', '**/*.html', '**/server/**'] :
-                // default ignore
-                '**/*.html'
+    closeBundle: {
+      sequential: true,
+      order: 'post',
+      async handler() {
+        if (!/^http/i.test(baseConfig)) {
+          throw Error('[vite-plugin-upload-alioss] base must be a url');
         }
-      );
 
-      try {
-        cdnCache = _(cdnCache).merge(JSON.parse(fs.readFileSync(path.join(__dirname, cdnCacheFileName)))).value();
-      } catch (e) {}
+        const outDirPath = normalizePath(path.resolve(normalizePath(buildConfig.outDir)));
+        const ssrClient = buildConfig.ssrManifest;
 
-      console.log();
-      console.log('============== 开始上传 ==============');
-      console.log();
+        const files = globSync(
+          outDirPath + '/**/*',
+          {
+            strict: true,
+            nodir: true,
+            dot: true,
+            ignore:
+              // custom ignore
+              options.ignore ? options.ignore :
+              // ssr client ignore
+                ssrClient ? ['**/ssr-manifest.json', '**/*.html', '**/server/**'] :
+                  // default ignore
+                  '**/*.html'
+          }
+        );
 
-      for (const fileFullPath of files) {
-        const cdnName = path.relative(asset, fileFullPath);
+        try {
+          cdnCache = _(cdnCache).merge(JSON.parse(fs.readFileSync(path.join(__dirname, cdnCacheFileName)))).value();
+        } catch (e) {}
 
-        await uploadFile({
-          filePath: fileFullPath,
-          filename: cdnName,
-          ossClient,
-          keyPrefix,
-          cdnCache
-        });
+        console.log();
+        console.log('============== 开始上传 ==============');
+        console.log();
+
+        for (const fileFullPath of files) {
+          const cdnName = path.relative(asset, fileFullPath);
+
+          await uploadFile({
+            filePath: fileFullPath,
+            filename: cdnName,
+            ossClient,
+            keyPrefix,
+            cdnCache
+          });
+        }
+
+        fs.writeFileSync(path.join(__dirname, cdnCacheFileName), JSON.stringify(cdnCache, null, '  '));
+
+        console.log();
+        console.log('============== 上传完成 ==============');
+        console.log();
       }
-
-      fs.writeFileSync(path.join(__dirname, cdnCacheFileName), JSON.stringify(cdnCache, null, '  '));
-
-      console.log();
-      console.log('============== 上传完成 ==============');
-      console.log();
     }
   }
 }

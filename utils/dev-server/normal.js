@@ -1,12 +1,12 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { createServer as createViteServer, loadConfigFromFile, mergeConfig } from 'vite';
-import fs from 'node:fs';
 import getPort from 'get-port';
-import path from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
 import checker from 'vite-plugin-checker';
 
-import { getMiddleware as getNormalMiddleware, getProjectName } from '../../server/router/normal.js';
-import config from '../../server/config/index.js';
+import { getMiddleware as getNormalMiddleware, getProjectInfo } from '../../server/router/normal.js';
 
 const viteServerCache = {};
 const webSocketServerCache = {};
@@ -16,12 +16,33 @@ const processedRequests = new Set();
 export default function getMiddleware({ devConfig, server } = {}) {
   const middleware = async (req, res, next) => {
     const url = req.originalUrl;
-    const normalPath = req.app.locals.serverConfig.normalProjectPath;
+    const projectRootPath = req.app.locals.serverConfig.normalProjectPath;
 
-    if (url.indexOf(`/${config.normalUrlPrefix}/`) === 0) {
-      const projectName = await getProjectName(url, normalPath);
+    if (url.startsWith('/__micro-site-normal__/')) {
+      const match = /\/__micro-site-normal__\/(.+?)\/__\//i.exec(url);
 
-      if (!projectName) {
+      if (!match) {
+        return next();
+      }
+
+      const projectName = match[1];
+
+      if (viteServerCache[projectName]) {
+        viteServerCache[projectName].middlewares(req, res, next);
+      }
+      else {
+        next();
+      }
+    }
+    else if (url.startsWith('/__micro-site-ssr__/')) {
+      // SSR 项目跳过
+      next();
+    }
+    else {
+      const projectInfo = await getProjectInfo(req._parsedOriginalUrl.pathname, projectRootPath);
+      console.log('=======', req._parsedOriginalUrl.pathname, projectInfo);
+
+      if (!projectInfo) {
         return next();
       }
 
@@ -29,8 +50,8 @@ export default function getMiddleware({ devConfig, server } = {}) {
 
       let viteServer;
 
-      if (viteServerCache[projectName]) {
-        viteServer = viteServerCache[projectName];
+      if (viteServerCache[projectInfo.projectName]) {
+        viteServer = viteServerCache[projectInfo.projectName];
       }
       else {
         const port = await getPort();
@@ -54,12 +75,12 @@ export default function getMiddleware({ devConfig, server } = {}) {
           clientPort = devConfig.port;
         }
 
-        const projectFullPath = path.join(normalPath, projectName);
+        const projectFullPath = join(projectRootPath, projectInfo.projectName);
 
         let viteConfig = mergeConfig(defaultViteConfig, {
           plugins: [
             checker({
-              vueTsc: true,
+              // vueTsc: true,
               eslint: {
                 lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`
               },
@@ -68,8 +89,8 @@ export default function getMiddleware({ devConfig, server } = {}) {
               }
             })
           ],
-          base: `/__micro-site-normal__/${projectName}/__`,
-          cacheDir: `node_modules/.vite/micro-site-cache/normal/${projectName}`,
+          base: `/__micro-site-normal__/${projectInfo.projectName}/__`,
+          cacheDir: `node_modules/.vite/micro-site-cache/normal/${projectInfo.projectName}`,
           server: {
             middlewareMode: true,
             hmr: {
@@ -90,9 +111,9 @@ export default function getMiddleware({ devConfig, server } = {}) {
           }
         });
 
-        const myViteConfigPath = path.join(normalPath, `${projectName}/my-vite.config.js`);
+        const myViteConfigPath = join(projectRootPath, `${projectInfo.projectName}/my-vite.config.js`);
 
-        if (fs.existsSync(myViteConfigPath)) {
+        if (existsSync(myViteConfigPath)) {
           viteConfig = (await import(myViteConfigPath)).default(viteConfig, { mode: 'development', ssrBuild: false });
         }
 
@@ -101,7 +122,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
           ...viteConfig
         });
 
-        viteServerCache[projectName] = viteServer;
+        viteServerCache[projectInfo.projectName] = viteServer;
       }
 
       // 准备 html
@@ -109,25 +130,6 @@ export default function getMiddleware({ devConfig, server } = {}) {
       const middleware = getNormalMiddleware({ viteServer });
 
       middleware(req, res, next);
-    }
-    else if (url.indexOf(`/__micro-site-normal__/`) === 0) {
-      const match = /\/__micro-site-normal__\/(.+?)\/__\//i.exec(url);
-
-      if (!match) {
-        return next();
-      }
-
-      const projectName = match[1];
-
-      if (viteServerCache[projectName]) {
-        viteServerCache[projectName].middlewares(req, res, next);
-      }
-      else {
-        next();
-      }
-    }
-    else {
-      next();
     }
   }
 

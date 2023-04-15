@@ -1,19 +1,7 @@
-import express from 'express';
-import { stat, access } from 'node:fs/promises';
-import path from 'path';
-import { StaticController } from '../common/index.js';
+import { stat } from 'node:fs/promises';
+import { dirname, basename, join } from 'node:path';
 
-const splitPath = (url) => {
-  const uriArr = url.split('/');
-  const path = `/${uriArr.slice(2, -1).join('/')}`;
-  const method = uriArr.slice(-1);
-
-  return {
-    path,
-    method,
-    full: path + '/' + method
-  };
-}
+import { StaticController, fileExists, trimSlash } from '../common/index.js';
 
 const toCamelCase = (str, delimiter) => {
   const re = new RegExp(delimiter + '([a-z])', 'g')
@@ -21,8 +9,6 @@ const toCamelCase = (str, delimiter) => {
     return g[1].toUpperCase();
   });
 }
-
-const fileExists = async path => !!(await stat(path).catch(() => false));
 
 // 查找 controller 文件夹
 const searchControllerFolder = async (rootPath, searchArray, searchIndex = 2) => {
@@ -47,122 +33,127 @@ const searchControllerFolder = async (rootPath, searchArray, searchIndex = 2) =>
   return [currentPath, searchArray[searchIndex] || '', searchArray.slice(searchIndex)];
 }
 
-export const getProjectName = async (url, normalPath) => {
-  const pathArr = splitPath(url);
+// 获取项目信息，获取不到返回 false
+export const getProjectInfo = async (url, projectRootPath) => {
+  if (url === '/') {
+    // 首页项目不可能是 normal 类型的项目
+    return false;
+  }
 
   // 查找 controller 文件夹
-  const [filePath] = await searchControllerFolder(normalPath, pathArr.full.split('/'));
+  const [filePath, method, last] = await searchControllerFolder(projectRootPath, url.split('/'));
 
-  return path.dirname(filePath).slice(1);
-}
+  // 项目名
+  const projectName = trimSlash(dirname(filePath));
+  // 控制器文件名
+  const controllerFileName = basename(filePath);
+  // 方法名
+  const methodName = method || 'main';
+  // server 文件夹全路径
+  const serverFolderFullPath = join(projectRootPath, projectName, 'server');
 
-export const getMiddleware = ({ viteServer = null } = {}) => {
-  return async (req, res, next) => {
-    const pathArr = splitPath(req.originalUrl);
-    const normalPath = req.app.locals.serverConfig.normalProjectPath;
+  const staticFileName = join(controllerFileName, (last.length > 0 ? `/${last.join('/')}` : ''));
+  let staticFullPath = join(projectRootPath, projectName, staticFileName);
 
-    // 查找 controller 文件夹
-    const [filePath, method, last] = await searchControllerFolder(normalPath, pathArr.full.split('/'));
+  const staticArray = [];
+  // 在路径中找 .html 位置
+  staticFullPath.split('/').some((item) => {
+    staticArray.push(item);
 
-    // 重新设置路径
-    pathArr.path = filePath;
-    pathArr.method = method || 'main';
+    return /\.html$/i.test(item);
+  });
+  // 重新设置 staticPath
+  staticFullPath = staticArray.join('/');
 
-    const dir = path.dirname(filePath);
-    const filename = path.basename(filePath);
+  const isServerExists = await fileExists(serverFolderFullPath);
 
-    const controllerPath = normalPath + dir + '/server/' + filename;
-    const staticFilename = filename + (last.length > 0 ? `/${last.join('/')}` : '');
-    let staticPath = normalPath + dir + '/' + staticFilename;
-
-    const staticArray = [];
-    // 在路径中找 .html 位置
-    staticPath.split('/').some((item) => {
-      staticArray.push(item);
-
-      return /\.html$/i.test(item);
-    });
-    // 重新设置 staticPath
-    staticPath = staticArray.join('/');
-
-    try {
-      const isServerExists = await fileExists(`${normalPath}${dir}/server`);
-
-      if (/\.html$/i.test(staticPath)) {
-        if (isServerExists) {
-          return next(new Error('not found'));
-        }
-
-        await access(staticPath);
-
-        const staticInstance = new StaticController({ req, res, next, projectName: dir.slice(1), viteServer });
-        staticInstance.main(staticFilename);
-      }
-      else {
-        await access(`${controllerPath}.js`);
-
-        if (pathArr.method.indexOf('$') === 0) {
-          // $ 开头的是隐藏方法，不允许访问
-          return next();
-        }
-
-        try {
-          const controllerClass = (await import(`${controllerPath}.js`)).default;
-
-          const controller = new controllerClass({ req, res, next, projectName: dir.slice(1), viteServer });
-          let action = controller[pathArr.method];
-
-          // 尝试下划线分隔命名转成驼峰命名，以便让 url 使用下划线而 JS 保持驼峰不变。
-          if (!action) {
-            action = controller[toCamelCase(pathArr.method, '_')];
-          }
-
-          // 尝试减号分隔命名转成驼峰命名，以便让 url 使用减号而 JS 保持驼峰不变。
-          if (!action) {
-            action = controller[toCamelCase(pathArr.method, '-')];
-          }
-
-          if (action) {
-            if (typeof action === 'function') {
-              action.call(controller, { req, res, next });
-            }
-            else {
-              res.send(action);
-            }
-          }
-          else {
-            next();
-          }
-        }
-        catch (e) {
-          console.log(e)
-          next(new Error('method or property "' + pathArr.method + '" is not found in ' + pathArr.path + '.js'));
-        }
-      }
+  if (staticFullPath.endsWith('.html')) {
+    if (isServerExists) {
+      return false;
     }
-    catch (e) {
-      if (e.code === 'ENOENT') {
-        next();
-      }
-      else {
-        console.log(e);
-        next(e);
-      }
+
+    const isStaticExists = await fileExists(staticFullPath);
+
+    if (!isStaticExists) {
+      return false;
+    }
+
+    return {
+      type: 'static',
+      projectName,
+      fileName: staticFileName
+    }
+  }
+  else {
+    const controllerFullFileName = join(serverFolderFullPath, `${controllerFileName}.js`);
+    const isControllerExists = await fileExists(controllerFullFileName);
+
+    if (!isControllerExists) {
+      return false;
+    }
+
+    if (methodName.startsWith('$')) {
+      // $ 开头的是隐藏方法，不允许访问
+      return false;
+    }
+
+    return {
+      type: 'controller',
+      projectName,
+      fileName: controllerFullFileName,
+      methodName
     }
   }
 }
 
-export default function getRouter() {
-  const router = express.Router();
-  const middleware = getMiddleware();
+export const getMiddleware = ({ viteServer = null } = {}) => {
+  return async (req, res, next) => {
+    const projectInfo = await getProjectInfo(req._parsedOriginalUrl.pathname, req.app.locals.serverConfig.normalProjectPath);
 
-  router.get('/', function(req, res, next) {
-    middleware(req, res, next);
-  });
+    if (!projectInfo) {
+      return next();
+    }
 
-  router.post('/', function(req, res, next) {
-    middleware(req, res, next);
-  });
+    try {
+      if (projectInfo.type === 'static') {
+        const staticInstance = new StaticController({ projectName: projectInfo.projectName, req, res, next, viteServer });
+        staticInstance.main(projectInfo.fileName);
+      }
+      else if (projectInfo.type === 'controller') {
+        const ControllerClass = (await import(projectInfo.fileName)).default;
 
-  return router;
+        const controller = new ControllerClass({ projectName: projectInfo.projectName, req, res, next, viteServer });
+        let action = controller[projectInfo.methodName];
+
+        // 尝试下划线分隔命名转成驼峰命名，以便让 url 使用下划线而 JS 保持驼峰不变。
+        if (!action) {
+          action = controller[toCamelCase(projectInfo.methodName, '_')];
+        }
+
+        // 尝试减号分隔命名转成驼峰命名，以便让 url 使用减号而 JS 保持驼峰不变。
+        if (!action) {
+          action = controller[toCamelCase(projectInfo.methodName, '-')];
+        }
+
+        if (action) {
+          if (typeof action === 'function') {
+            action.call(controller, { req, res, next });
+          }
+          else {
+            res.send(action);
+          }
+        }
+        else {
+          next();
+        }
+      }
+      else {
+        next();
+      }
+    }
+    catch (e) {
+      console.log(e)
+      next(new Error('method or property "' + projectInfo.methodName + '" is not found in ' + projectInfo.fileName));
+    }
+  }
 }

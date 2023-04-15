@@ -1,14 +1,16 @@
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import { resolve as pathResolve, join } from 'node:path';
+import { accessSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { build, loadConfigFromFile, mergeConfig } from 'vite';
 import chalk from 'chalk';
 import cpy from 'cpy';
 import { deleteAsync } from 'del';
-import renameHtml from './vite-plugin-rename-html.js';
-import uploadAlioss from './vite-plugin-upload-alioss.js';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 import checker from 'vite-plugin-checker';
+
+import renameHtml from './vite-plugin-rename-html.js';
+import uploadAlioss from './vite-plugin-upload-alioss.js';
 
 import serverConfig from '../server/config/index.js';
 
@@ -16,7 +18,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const argv = process.argv;
 
 const resolve = (str) => {
-  return path.resolve(__dirname, `../${str}`);
+  return pathResolve(__dirname, `../${str}`);
 }
 
 const main = async () => {
@@ -27,11 +29,11 @@ const main = async () => {
   }
 
   const projectName = argv[2];
-  const ssrProjectPath = `${serverConfig.ssrUrlPrefix}/${projectName}`;
+  const ssrProjectPath = `${serverConfig.ssrFolderPrefix}/${projectName}`;
   const ssrProjectFullPath = resolve(`src/${ssrProjectPath}`);
 
   try {
-    fs.accessSync(ssrProjectFullPath);
+    accessSync(ssrProjectFullPath);
   }
   catch (e) {
     console.log(chalk.yellow('\n项目不存在！\n'));
@@ -107,9 +109,9 @@ const main = async () => {
     }
   });
 
-  const myViteConfigPath = resolve(path.join('src', ssrProjectPath, 'my-vite.config.js'));
+  const myViteConfigPath = resolve(join('src', ssrProjectPath, 'my-vite.config.js'));
 
-  if (fs.existsSync(myViteConfigPath)) {
+  if (existsSync(myViteConfigPath)) {
     const myViteConfig = (await import(myViteConfigPath)).default;
 
     clientBuildConfig = myViteConfig(clientBuildConfig, { mode: 'build', ssrBuild: false });
@@ -131,7 +133,7 @@ const main = async () => {
       ...serverBuildConfig
     });
 
-    if (!/^http/i.test(devConfig.cdnUrlPrefix)) {
+    if (process.env.MICRO_SITE_USE_CDN !== 'yes') {
       await cpy([resolve(`dist/${ssrProjectPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**'], resolve(`dist/${serverConfig.resUrlPrefix}/${ssrProjectPath}`));
     }
     await deleteAsync([resolve(`dist/${ssrProjectPath}/**/*`), '!**/*.html', '!**/ssr-manifest.json', '!**/server/**']);

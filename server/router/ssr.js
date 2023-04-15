@@ -1,64 +1,122 @@
-import express from 'express';
 import { stat, readFile } from 'node:fs/promises';
-import path from 'path';
+import { join } from 'node:path';
+
 import cbT from 'cb-template';
+import { fileExists, trimSlash } from '../common/index.js';
 
-export default function getRouter({ isHomeProject = false } = {}) {
-  const router = express.Router();
+import config from '../config/index.js';
 
-  const splitPath = (uri) => {
-    const uriArr = uri.split('/');
-    const path = `/${uriArr.slice(2).join('/')}`;
-
-    return path;
+// 查找文件夹
+const searchProjectFolder = async (rootPath, searchArray, searchIndex = 2) => {
+  if (searchIndex > searchArray.length) {
+    // 所有目录都存在
+    return searchArray.join('/');
   }
 
-  // 查找文件夹
-  const searchFolder = async (rootPath, searchArray, searchIndex = 2) => {
-    if (searchIndex > searchArray.length) {
-      // 所有目录都存在
-      return searchArray.join('/');
+  const currentPath = searchArray.slice(0, searchIndex).join('/');
+
+  try {
+    const stats = await stat(rootPath + currentPath);
+
+    if (stats.isDirectory()) {
+      // 目录存在，继续下一级
+      return await searchProjectFolder(rootPath, searchArray, searchIndex + 1);
+    }
+  }
+  catch (e) {
+  }
+
+  // 目录不存在，返回
+  return searchArray.slice(0, searchIndex - 1).join('/');
+}
+
+export const getProjectInfo = async (url, projectRootPath, isHomeProject = false) => {
+  let projectName;
+
+  if (isHomeProject) {
+    projectName = config.homeProject;
+  }
+  else {
+    if (url === '/') {
+      // 没有首页标志，不允许使用首页 URL
+      return false;
     }
 
-    const currentPath = searchArray.slice(0, searchIndex).join('/');
+    // 查找项目文件夹
+    projectName = trimSlash(await searchProjectFolder(projectRootPath, url.split('/')));
 
-    try {
-      const stats = await stat(rootPath + currentPath);
+    // 如果从 url 中查找到 home 项目，则直接忽略
+    if (projectName === config.homeProject) {
+      return false;
+    }
+  }
 
-      if (stats.isDirectory()) {
-        // 目录存在，继续下一级
-        return await searchFolder(rootPath, searchArray, searchIndex + 1);
+  let serverEntryFullFileName;
+
+  if (process.env.NODE_ENV === 'production') {
+    serverEntryFullFileName = join(projectRootPath, projectName, 'server', 'entry-server.js');
+  }
+  else {
+    serverEntryFullFileName = join(projectRootPath, projectName, 'entry-server.js');
+  }
+
+  const ssrManifestFullFileName = join(projectRootPath, projectName, 'ssr-manifest.json');
+  const templateFullFileName = join(projectRootPath, projectName, 'index.html');
+
+  if (
+    !(await fileExists(serverEntryFullFileName))
+    || !(await fileExists(templateFullFileName))
+  ) {
+    return false;
+  }
+
+  return {
+    projectName,
+    serverEntry: serverEntryFullFileName,
+    ssrManifest: ssrManifestFullFileName,
+    template: templateFullFileName
+  }
+}
+
+export const getMiddleware = () => {
+  return async (req, res, next) => {
+    const url = req.originalUrl;
+    const pathname = req._parsedOriginalUrl.pathname;
+
+    // 如果是 res 资源则忽略
+    const re = new RegExp(`^/(${config.resUrlPrefix})(/|$)`);
+    if (re.test(pathname)) {
+      return next();
+    }
+
+    let projectInfo;
+    // 先检查非 home 项目
+    projectInfo = await getProjectInfo(
+      pathname,
+      req.app.locals.serverConfig.ssrProjectPath,
+      false
+    );
+
+    if (!projectInfo) {
+      // 再检查 home 项目
+      projectInfo = await getProjectInfo(
+        pathname,
+        req.app.locals.serverConfig.ssrProjectPath,
+        true
+      );
+
+      if (!projectInfo) {
+        return next();
       }
     }
-    catch (e) {
-    }
-
-    // 目录不存在，返回
-    return searchArray.slice(0, searchIndex - 1).join('/');
-  }
-
-  const route = async (req, res, next) => {
-    const uri = splitPath(req.baseUrl);
-    const ssrPath = req.app.locals.serverConfig.ssrProjectPath;
-
-    let projectName;
-    const url = req.originalUrl;
-
-    if (isHomeProject) {
-      projectName = req.app.locals.serverConfig.homeProject;
-    }
-    else {
-      // 查找 controller 文件夹
-      projectName = await searchFolder(ssrPath, uri.split('/').splice(1, 1));
-    }
 
     try {
-      const render = (await import(path.join(ssrPath, `${projectName}/server/entry-server.js`))).render;
-      const manifest = JSON.parse(await readFile(path.join(ssrPath, `${projectName}/ssr-manifest.json`), 'utf-8'));
+      const render = (await import(projectInfo.serverEntry)).render;
+      const manifest = JSON.parse(await readFile(projectInfo.ssrManifest), 'utf-8');
 
       const templateData = await render({ url, manifest });
 
-      let html = await readFile(path.join(req.app.locals.serverConfig.ssrProjectPath, `${projectName}/index.html`), 'utf-8');
+      let html = await readFile(projectInfo.template, 'utf-8');
       html = cbT.render(html, templateData);
 
       res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
@@ -73,31 +131,4 @@ export default function getRouter({ isHomeProject = false } = {}) {
       }
     }
   }
-
-  if (isHomeProject) {
-    router.use(function(req, res, next) {
-      const ssrUrlPrefix = req.app.locals.serverConfig.ssrUrlPrefix;
-      const normalUrlPrefix = req.app.locals.serverConfig.normalUrlPrefix;
-      const resUrlPrefix = req.app.locals.serverConfig.resUrlPrefix;
-      const reg = new RegExp(`^/(${ssrUrlPrefix}|${normalUrlPrefix}|${resUrlPrefix})(/|$)`);
-
-      if (reg.test(req.originalUrl)) {
-        next(new Error('not found'));
-      }
-      else {
-        route(req, res, next);
-      }
-    });
-  }
-  else {
-    router.get('/', function(req, res, next) {
-      route(req, res, next);
-    });
-
-    router.post('/', function(req, res, next) {
-      route(req, res, next);
-    });
-  }
-
-  return router;
 }
