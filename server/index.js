@@ -8,8 +8,8 @@ import bodyParser from 'body-parser';
 import morgan from 'morgan';
 import cbT from 'cb-template';
 
-import { getMiddleware as getNormalMiddleware } from './router/normal.js';
-import { getMiddleware as getSsrMiddleware } from './router/ssr.js';
+import { getMiddleware as getNormalMiddleware } from './middleware/normal.js';
+import { getMiddleware as getSsrMiddleware } from './middleware/ssr.js';
 
 import config from './config/index.js';
 

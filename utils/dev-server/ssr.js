@@ -8,7 +8,8 @@ import getPort from 'get-port';
 import { WebSocket, WebSocketServer } from 'ws';
 import checker from 'vite-plugin-checker';
 
-import { getProjectInfo } from '../../server/router/ssr.js';
+import { getProjectInfo } from '../../server/middleware/ssr.js';
+
 import config from '../../server/config/index.js';
 
 const viteServerCache = {};
