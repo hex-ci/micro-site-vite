@@ -72,3 +72,4 @@ dist/
 /config/config.js
 /utils/.cache/
 /utils/*.json
+tsconfig.tsbuildinfo
