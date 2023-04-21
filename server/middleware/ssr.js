@@ -116,7 +116,7 @@ export const getMiddleware = () => {
       const render = (await import(projectInfo.serverEntry)).render;
       const manifest = JSON.parse(await readFile(projectInfo.ssrManifest), 'utf-8');
 
-      const templateData = await render({ url, manifest });
+      const templateData = await render({ url, manifest, request: req, response: res });
 
       let html = await readFile(projectInfo.template, 'utf-8');
       html = cbT.render(html, templateData);

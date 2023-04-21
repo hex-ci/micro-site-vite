@@ -17,7 +17,7 @@ const webSocketServerCache = {};
 const webSocketClientCache = {};
 const processedRequests = new Set();
 
-const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request }) => {
+const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request, response }) => {
   // 准备 vite server
 
   let viteServer;
@@ -103,7 +103,7 @@ const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request
     const render = (await viteServer.ssrLoadModule(projectInfo.serverEntry)).render;
     const manifest = {};
 
-    const templateData = await render({ url, manifest });
+    const templateData = await render({ url, manifest, request, response });
 
     let html = await readFile(projectInfo.template, 'utf-8');
     html = await viteServer.transformIndexHtml(url, html);
@@ -193,7 +193,8 @@ export default function getMiddleware({ devConfig, server } = {}) {
         projectInfo,
         url,
         devConfig,
-        request: req
+        request: req,
+        response: res
       });
 
       if (isSuccess) {
