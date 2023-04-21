@@ -112,16 +112,16 @@ const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request
     let styleTag = '';
     viteServer.moduleGraph.idToModuleMap.forEach((module) => {
       if (module.ssrModule && /\.(css|scss|sass|less|styl)$/i.test(module.id)) {
-        styleTag += `<style type="text/css" micro-site-ssr-dev data-vite-dev-id="${module.id}">${module.ssrModule.default}</style>`;
+        styleTag += `<style type="text/css" data-micro-site-ssr-dev-id="${module.id}">${module.ssrModule.default}</style>`;
       }
     });
     html = html.replace('</head>', `${styleTag}<script>
     window.onload = () => {
       setTimeout(() => {
-        document.querySelectorAll('style[micro-site-ssr-dev]').forEach(item => {
+        document.querySelectorAll('style[data-micro-site-ssr-dev-id]').forEach(item => {
           item.remove();
         });
-      }, 500);
+      }, 1000);
     }
     </script></head>`);
 
