@@ -17,6 +17,8 @@ import serverConfig from '../server/config/index.js';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const argv = process.argv;
 
+process.env.NODE_ENV = 'production';
+
 const resolve = (str) => {
   return pathResolve(__dirname, `../${str}`);
 }
