@@ -9,6 +9,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import checker from 'vite-plugin-checker';
 
 import { getProjectInfo } from '../../server/middleware/ssr.js';
+import { getDefineByEnv } from '../helper.js';
 
 import config from '../../server/config/index.js';
 
@@ -48,6 +49,7 @@ const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request
     }
 
     const projectFullPath = join(devConfig.projectPath, config.ssrFolderPrefix, projectInfo.projectName);
+    const define = getDefineByEnv('development', projectFullPath);
 
     let viteConfig = mergeConfig(defaultViteConfig, {
       plugins: [
@@ -63,6 +65,7 @@ const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request
       ],
       base: `/__micro-site-ssr__/${projectInfo.projectName}/__`,
       cacheDir: `node_modules/.vite/micro-site-cache/ssr/${projectInfo.projectName}`,
+      define,
       server: {
         middlewareMode: true,
         hmr: {
@@ -80,7 +83,7 @@ const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request
         alias: {
           '@current': projectFullPath
         }
-      }
+      },
     });
 
     const myViteConfigPath = join(projectFullPath, 'my-vite.config.js');

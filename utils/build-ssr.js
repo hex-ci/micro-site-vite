@@ -11,6 +11,7 @@ import checker from 'vite-plugin-checker';
 
 import renameHtml from './vite-plugin-rename-html.js';
 import uploadAlioss from './vite-plugin-upload-alioss.js';
+import { getDefineByEnv } from './helper.js';
 
 import serverConfig from '../server/config/index.js';
 
@@ -33,6 +34,7 @@ const main = async () => {
   const projectName = argv[2];
   const ssrProjectPath = `${serverConfig.ssrFolderPrefix}/${projectName}`;
   const ssrProjectFullPath = resolve(`src/${ssrProjectPath}`);
+  const define = getDefineByEnv('production', ssrProjectFullPath);
 
   try {
     accessSync(ssrProjectFullPath);
@@ -80,6 +82,7 @@ const main = async () => {
       })
     ],
     base: `${devConfig.cdnUrlPrefix}${ssrProjectPath}/`,
+    define,
     resolve: {
       alias: {
         '@current': ssrProjectFullPath
@@ -91,11 +94,12 @@ const main = async () => {
       rollupOptions: {
         input: `src/${ssrProjectPath}/index.html`
       }
-    }
+    },
   });
 
   let serverBuildConfig = mergeConfig(serverViteConfig, {
     base: `${devConfig.cdnUrlPrefix}${ssrProjectPath}/`,
+    define,
     resolve: {
       alias: {
         '@current': ssrProjectFullPath
@@ -108,7 +112,7 @@ const main = async () => {
       rollupOptions: {
         input: `src/${ssrProjectPath}/entry-server.js`
       }
-    }
+    },
   });
 
   const myViteConfigPath = resolve(join('src', ssrProjectPath, 'my-vite.config.js'));

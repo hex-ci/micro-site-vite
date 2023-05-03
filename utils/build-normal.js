@@ -11,6 +11,7 @@ import checker from 'vite-plugin-checker';
 
 import renameHtml from './vite-plugin-rename-html.js';
 import uploadAlioss from './vite-plugin-upload-alioss.js';
+import { getDefineByEnv } from './helper.js';
 
 import serverConfig from '../server/config/index.js';
 
@@ -33,6 +34,7 @@ const main = async () => {
   const projectName = argv[2];
   const normalProjectPath = `${serverConfig.normalFolderPrefix}/${projectName}`;
   const normalProjectFullPath = resolve(`src/${normalProjectPath}`);
+  const define = getDefineByEnv('production', normalProjectFullPath);
 
   try {
     accessSync(normalProjectFullPath);
@@ -78,6 +80,7 @@ const main = async () => {
       })
     ],
     base: `${devConfig.cdnUrlPrefix}${normalProjectPath}/`,
+    define,
     resolve: {
       alias: {
         '@current': normalProjectFullPath
@@ -88,7 +91,7 @@ const main = async () => {
       rollupOptions: {
         input: `src/${normalProjectPath}/index.html`
       }
-    }
+    },
   });
 
   const myViteConfigPath = resolve(join('src', normalProjectPath, 'my-vite.config.js'));

@@ -7,6 +7,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import checker from 'vite-plugin-checker';
 
 import { getMiddleware as getNormalMiddleware, getProjectInfo } from '../../server/middleware/normal.js';
+import { getDefineByEnv } from '../helper.js';
 
 const viteServerCache = {};
 const webSocketServerCache = {};
@@ -75,6 +76,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
         }
 
         const projectFullPath = join(projectRootPath, projectInfo.projectName);
+        const define = getDefineByEnv('development', projectFullPath);
 
         let viteConfig = mergeConfig(defaultViteConfig, {
           plugins: [
@@ -90,6 +92,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
           ],
           base: `/__micro-site-normal__/${projectInfo.projectName}/__`,
           cacheDir: `node_modules/.vite/micro-site-cache/normal/${projectInfo.projectName}`,
+          define,
           server: {
             middlewareMode: true,
             hmr: {
@@ -107,7 +110,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
             alias: {
               '@current': projectFullPath
             }
-          }
+          },
         });
 
         const myViteConfigPath = join(projectFullPath, 'my-vite.config.js');
