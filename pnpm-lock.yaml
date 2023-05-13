@@ -25,6 +25,9 @@ dependencies:
   morgan:
     specifier: ^1.10.0
     version: 1.10.0
+  parseurl:
+    specifier: ^1.3.3
+    version: 1.3.3
   pinia:
     specifier: ^2.0.32
     version: 2.0.32(typescript@5.0.4)(vue@3.2.47)

@@ -25,7 +25,6 @@ async function createServer() {
   // 初始化配置信息
   app.locals.serverConfig = {
     serverPath: __dirname,
-    baseApiUrl: config.baseApiUrl,
     ssrFolderPrefix: config.ssrFolderPrefix,
     normalFolderPrefix: config.normalFolderPrefix,
     resUrlPrefix: config.resUrlPrefix,
@@ -35,7 +34,9 @@ async function createServer() {
     homeProject: config.homeProject
   };
 
-  app.use(morgan('dev'));
+  app.use(morgan(isDev ? 'dev' : 'combined', {
+    skip: (req, res) => res.statusCode < (isDev ? 400 : 0)
+  }));
   app.use(bodyParser.json({ limit: '6mb' }));
   app.use(bodyParser.urlencoded({ limit: '6mb', extended: false }));
   app.use(cookieParser());

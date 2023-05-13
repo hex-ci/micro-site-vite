@@ -29,7 +29,7 @@ export default async function getConfig() {
     host: config.host || '127.0.0.1',
     port: config.port || 5173,
     clientPort: config.clientPort,
-    baseApiUrl: config.baseApiUrl,
+    proxy: config.proxy || {},
     root: rootPath,
 
     // CDN URL 前缀，结尾需要斜杠

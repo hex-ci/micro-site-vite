@@ -5,6 +5,7 @@ import { createServer as createViteServer, loadConfigFromFile, mergeConfig } fro
 import getPort from 'get-port';
 import { WebSocket, WebSocketServer } from 'ws';
 import checker from 'vite-plugin-checker';
+import parseurl from 'parseurl';
 
 import { getMiddleware as getNormalMiddleware, getProjectInfo } from '../../server/middleware/normal.js';
 import { getDefineByEnv } from '../helper.js';
@@ -40,7 +41,8 @@ export default function getMiddleware({ devConfig, server } = {}) {
       next();
     }
     else {
-      const projectInfo = await getProjectInfo(req._parsedOriginalUrl.pathname, projectRootPath);
+      const parsedOriginalUrl = parseurl.original(req);
+      const projectInfo = await getProjectInfo(parsedOriginalUrl.pathname, projectRootPath);
 
       if (!projectInfo) {
         return next();

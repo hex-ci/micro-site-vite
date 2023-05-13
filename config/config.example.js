@@ -4,6 +4,14 @@ export default {
 
   host: '127.0.0.1',
 
-  // ajax 请求 api 代理目标地址，开发一般是接口虚拟机地址
-  baseApiUrl: 'http://domain.com'
+  // 为开发服务器配置自定义代理规则，用于代理浏览器发起的请求
+  proxy: {
+    '/api': {
+      target: 'http://domain.com',
+      changeOrigin: true,
+      pathRewrite: {
+        '^/api/': '/',
+      },
+    },
+  },
 };

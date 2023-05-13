@@ -7,6 +7,7 @@ import { createServer as createViteServer, loadConfigFromFile, mergeConfig } fro
 import getPort from 'get-port';
 import { WebSocket, WebSocketServer } from 'ws';
 import checker from 'vite-plugin-checker';
+import parseurl from 'parseurl';
 
 import { getProjectInfo } from '../../server/middleware/ssr.js';
 import { getDefineByEnv } from '../helper.js';
@@ -17,132 +18,6 @@ const viteServerCache = {};
 const webSocketServerCache = {};
 const webSocketClientCache = {};
 const processedRequests = new Set();
-
-const createViteServerAndGetHtml = async ({ projectInfo, url, devConfig, request, response }) => {
-  // 准备 vite server
-
-  let viteServer;
-
-  if (viteServerCache[projectInfo.projectName]) {
-    viteServer = viteServerCache[projectInfo.projectName];
-  }
-  else {
-    const port = await getPort();
-    const defaultViteConfig = (await loadConfigFromFile()).config;
-
-    let clientPort;
-
-    if (devConfig.clientPort) {
-      clientPort = devConfig.clientPort;
-    }
-    else if (request.headers['x-forwarded-port']) {
-      clientPort = request.headers['x-forwarded-port'];
-    }
-    else if (request.headers['x-forwarded-scheme'] == 'http') {
-      clientPort = 80;
-    }
-    else if (request.headers['x-forwarded-scheme'] == 'https') {
-      clientPort = 443;
-    }
-    else {
-      clientPort = devConfig.port;
-    }
-
-    const projectFullPath = join(devConfig.projectPath, config.ssrFolderPrefix, projectInfo.projectName);
-    const define = getDefineByEnv('development', projectFullPath);
-
-    let viteConfig = mergeConfig(defaultViteConfig, {
-      plugins: [
-        checker({
-          // vueTsc: true,
-          eslint: {
-            lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`
-          },
-          stylelint: {
-            lintCommand: `stylelint ${projectFullPath}/**/*.{scss,css,vue} --quiet-deprecation-warnings`
-          }
-        })
-      ],
-      base: `/__micro-site-ssr__/${projectInfo.projectName}/__`,
-      cacheDir: `node_modules/.vite/micro-site-cache/ssr/${projectInfo.projectName}`,
-      define,
-      server: {
-        middlewareMode: true,
-        hmr: {
-          path: `/__ws__`,
-          port,
-          clientPort
-        },
-        watch: {
-          usePolling: true,
-          interval: 300
-        }
-      },
-      appType: 'custom',
-      resolve: {
-        alias: {
-          '@current': projectFullPath
-        }
-      },
-    });
-
-    const myViteConfigPath = join(projectFullPath, 'my-vite.config.js');
-
-    if (existsSync(myViteConfigPath)) {
-      viteConfig = (await import(myViteConfigPath)).default(viteConfig, { mode: 'development', ssrBuild: false });
-    }
-
-    viteServer = await createViteServer({
-      configFile: false,
-      ...viteConfig
-    });
-
-    viteServerCache[projectInfo.projectName] = viteServer;
-  }
-
-  // 准备 html
-
-  try {
-    const render = (await viteServer.ssrLoadModule(projectInfo.serverEntry)).render;
-    const manifest = {};
-
-    const templateData = await render({ url, manifest, request, response });
-
-    let html = await readFile(projectInfo.template, 'utf-8');
-    html = await viteServer.transformIndexHtml(url, html);
-    html = cbT.render(html, templateData);
-
-    let styleTag = '';
-    viteServer.moduleGraph.idToModuleMap.forEach((module) => {
-      if (module.ssrModule && /\.(css|scss|sass|less|styl)$/i.test(module.id)) {
-        styleTag += `<style type="text/css" data-micro-site-ssr-dev-id="${module.id}">${module.ssrModule.default}</style>`;
-      }
-    });
-    html = html.replace('</head>', `${styleTag}<script>
-    window.onload = () => {
-      setTimeout(() => {
-        document.querySelectorAll('style[data-micro-site-ssr-dev-id]').forEach(item => {
-          item.remove();
-        });
-      }, 1000);
-    }
-    </script></head>`);
-
-    return {
-      isSuccess: true,
-      viteServer,
-      html
-    };
-  }
-  catch (e) {
-    viteServer.ssrFixStacktrace(e);
-    return {
-      isSuccess: false,
-      viteServer,
-      error: e
-    };
-  }
-}
 
 export default function getMiddleware({ devConfig, server } = {}) {
   const middleware = async (req, res, next) => {
@@ -170,11 +45,12 @@ export default function getMiddleware({ devConfig, server } = {}) {
       next();
     }
     else {
+      const parsedOriginalUrl = parseurl.original(req);
       let projectInfo;
 
       // 先检查非 home 项目
       projectInfo = await getProjectInfo(
-        req._parsedOriginalUrl.pathname,
+        parsedOriginalUrl.pathname,
         projectRootPath,
         false
       );
@@ -182,7 +58,7 @@ export default function getMiddleware({ devConfig, server } = {}) {
       if (!projectInfo) {
         // 再检查 home 项目
         projectInfo = await getProjectInfo(
-          req._parsedOriginalUrl.pathname,
+          parsedOriginalUrl.pathname,
           projectRootPath,
           true
         );
@@ -192,20 +68,125 @@ export default function getMiddleware({ devConfig, server } = {}) {
         }
       }
 
-      const { isSuccess, html, error } = await createViteServerAndGetHtml({
-        projectInfo,
-        url,
-        devConfig,
-        request: req,
-        response: res
-      });
+      // 准备 vite server
 
-      if (isSuccess) {
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      let viteServer;
+
+      if (viteServerCache[projectInfo.projectName]) {
+        viteServer = viteServerCache[projectInfo.projectName];
       }
       else {
-        console.log(error);
-        next(error);
+        const port = await getPort();
+        const defaultViteConfig = (await loadConfigFromFile()).config;
+
+        let clientPort;
+
+        if (devConfig.clientPort) {
+          clientPort = devConfig.clientPort;
+        }
+        else if (req.headers['x-forwarded-port']) {
+          clientPort = req.headers['x-forwarded-port'];
+        }
+        else if (req.headers['x-forwarded-scheme'] == 'http') {
+          clientPort = 80;
+        }
+        else if (req.headers['x-forwarded-scheme'] == 'https') {
+          clientPort = 443;
+        }
+        else {
+          clientPort = devConfig.port;
+        }
+
+        const projectFullPath = join(devConfig.projectPath, config.ssrFolderPrefix, projectInfo.projectName);
+        const define = getDefineByEnv('development', projectFullPath);
+
+        let viteConfig = mergeConfig(defaultViteConfig, {
+          plugins: [
+            checker({
+              // vueTsc: true,
+              eslint: {
+                lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`
+              },
+              stylelint: {
+                lintCommand: `stylelint ${projectFullPath}/**/*.{scss,css,vue} --quiet-deprecation-warnings`
+              }
+            })
+          ],
+          base: `/__micro-site-ssr__/${projectInfo.projectName}/__`,
+          cacheDir: `node_modules/.vite/micro-site-cache/ssr/${projectInfo.projectName}`,
+          define,
+          server: {
+            middlewareMode: true,
+            hmr: {
+              path: `/__ws__`,
+              port,
+              clientPort
+            },
+            watch: {
+              usePolling: true,
+              interval: 300
+            }
+          },
+          appType: 'custom',
+          resolve: {
+            alias: {
+              '@current': projectFullPath
+            }
+          },
+        });
+
+        const myViteConfigPath = join(projectFullPath, 'my-vite.config.js');
+
+        if (existsSync(myViteConfigPath)) {
+          viteConfig = (await import(myViteConfigPath)).default(viteConfig, { mode: 'development', ssrBuild: false });
+        }
+
+        viteServer = await createViteServer({
+          configFile: false,
+          ...viteConfig
+        });
+
+        viteServerCache[projectInfo.projectName] = viteServer;
+      }
+
+      // 准备 html
+
+      try {
+        const render = (await viteServer.ssrLoadModule(projectInfo.serverEntry)).render;
+        const manifest = {};
+
+        const templateData = await render({ url, manifest, request: req, response: res });
+
+        if (templateData === false) {
+          return;
+        }
+
+        let html = await readFile(projectInfo.template, 'utf-8');
+        html = await viteServer.transformIndexHtml(url, html);
+        html = cbT.render(html, templateData);
+
+        let styleTag = '';
+        viteServer.moduleGraph.idToModuleMap.forEach((module) => {
+          if (module.ssrModule && /\.(css|scss|sass|less|styl)$/i.test(module.id)) {
+            styleTag += `<style type="text/css" data-micro-site-ssr-dev-id="${module.id}">${module.ssrModule.default}</style>`;
+          }
+        });
+        html = html.replace('</head>', `${styleTag}<script>
+          window.onload = () => {
+            setTimeout(() => {
+              document.querySelectorAll('style[data-micro-site-ssr-dev-id]').forEach(item => {
+                item.remove();
+              });
+            }, 1000);
+          }
+          </script></head>`);
+
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      }
+      catch (e) {
+        viteServer.ssrFixStacktrace(e);
+        console.log(e);
+        next(e);
       }
     }
   }

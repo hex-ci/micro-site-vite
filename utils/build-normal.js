@@ -73,9 +73,9 @@ const main = async () => {
       }),
       process.env.MICRO_SITE_USE_CDN === 'yes' && uploadAlioss({
         oss: {
-          ...devConfig.ossOptions,
-          urlPrefix: devConfig.cdnUrlPrefix
+          ...devConfig.ossOptions
         },
+        urlPrefix: devConfig.cdnUrlPrefix,
         asset: 'dist'
       })
     ],

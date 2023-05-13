@@ -2,6 +2,7 @@ import { stat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import cbT from 'cb-template';
+import parseurl from 'parseurl';
 import { fileExists, trimSlash } from '../common/index.js';
 
 import config from '../config/index.js';
@@ -82,7 +83,8 @@ export const getProjectInfo = async (url, projectRootPath, isHomeProject = false
 export const getMiddleware = () => {
   return async (req, res, next) => {
     const url = req.originalUrl;
-    const pathname = req._parsedOriginalUrl.pathname;
+    const parsedOriginalUrl = parseurl.original(req);
+    const pathname = parsedOriginalUrl.pathname;
 
     // 如果是 res 资源则忽略
     const re = new RegExp(`^/(${config.resUrlPrefix})(/|$)`);
@@ -117,6 +119,10 @@ export const getMiddleware = () => {
       const manifest = JSON.parse(await readFile(projectInfo.ssrManifest), 'utf-8');
 
       const templateData = await render({ url, manifest, request: req, response: res });
+
+      if (templateData === false) {
+        return;
+      }
 
       let html = await readFile(projectInfo.template, 'utf-8');
       html = cbT.render(html, templateData);

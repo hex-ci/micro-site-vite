@@ -12,9 +12,6 @@ export default {
   // 服务器绑定地址
   host: '0.0.0.0',
 
-  // api 的 bese url
-  baseApiUrl: 'http://domain.com',
-
   // 首页使用的项目，只能是 SSR 项目
   homeProject: 'home',
 

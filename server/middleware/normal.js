@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { dirname, basename, join } from 'node:path';
+import parseurl from 'parseurl';
 
 import { StaticController, fileExists, trimSlash } from '../common/index.js';
 
@@ -108,7 +109,8 @@ export const getProjectInfo = async (url, projectRootPath) => {
 
 export const getMiddleware = ({ viteServer = null } = {}) => {
   return async (req, res, next) => {
-    const projectInfo = await getProjectInfo(req._parsedOriginalUrl.pathname, req.app.locals.serverConfig.normalProjectPath);
+    const parsedOriginalUrl = parseurl.original(req);
+    const projectInfo = await getProjectInfo(parsedOriginalUrl.pathname, req.app.locals.serverConfig.normalProjectPath);
 
     if (!projectInfo) {
       return next();
