@@ -127,14 +127,14 @@ export const getMiddleware = () => {
       let html = await readFile(projectInfo.template, 'utf-8');
       html = cbT.render(html, templateData);
 
-      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      res.status(templateData?.httpStatusCode || 200).set({ 'Content-Type': 'text/html' }).end(html);
     }
     catch (e) {
       if (e.code === 'ENOENT') {
         next();
       }
       else {
-        console.log(e);
+        console.error(e);
         next(e);
       }
     }

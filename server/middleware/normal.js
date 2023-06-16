@@ -146,16 +146,19 @@ export const getMiddleware = ({ viteServer = null } = {}) => {
           }
         }
         else {
-          next();
+          res.status(404).render('404');
         }
       }
       else {
-        next();
+        res.status(404).render('404');
       }
     }
     catch (e) {
-      console.log(e)
-      next(new Error('method or property "' + projectInfo.methodName + '" is not found in ' + projectInfo.fileName));
+      console.error(e);
+      res.status(500).render('500', {
+        error: e,
+        projectInfo,
+      });
     }
   }
 }

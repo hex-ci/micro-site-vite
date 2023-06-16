@@ -17,6 +17,7 @@ import serverConfig from '../server/config/index.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const argv = process.argv;
+const currentBuildMode = process.env.MICRO_SITE_BUILD_MODE || 'production';
 
 process.env.NODE_ENV = 'production';
 
@@ -34,7 +35,7 @@ const main = async () => {
   const projectName = argv[2];
   const normalProjectPath = `${serverConfig.normalFolderPrefix}/${projectName}`;
   const normalProjectFullPath = resolve(`src/${normalProjectPath}`);
-  const define = getDefineByEnv('production', normalProjectFullPath);
+  const define = getDefineByEnv(currentBuildMode, normalProjectFullPath);
 
   try {
     accessSync(normalProjectFullPath);
@@ -79,6 +80,7 @@ const main = async () => {
         asset: 'dist'
       })
     ],
+    mode: currentBuildMode,
     base: `${devConfig.cdnUrlPrefix}${normalProjectPath}/`,
     define,
     resolve: {

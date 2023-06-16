@@ -181,11 +181,11 @@ export default function getMiddleware({ devConfig, server } = {}) {
           }
           </script></head>`);
 
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+        res.status(templateData?.httpStatusCode || 200).set({ 'Content-Type': 'text/html' }).end(html);
       }
       catch (e) {
         viteServer.ssrFixStacktrace(e);
-        console.log(e);
+        console.error(e);
         next(e);
       }
     }
