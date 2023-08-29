@@ -11,7 +11,8 @@ import checker from 'vite-plugin-checker';
 
 import renameHtml from './vite-plugin-rename-html.js';
 import uploadAlioss from './vite-plugin-upload-alioss.js';
-import { getDefineByEnv } from './helper.js';
+import { getDefineByEnv, toPosixPath } from './helper.js';
+import { normalizePathForImport } from '#server/common/index.js';
 
 import serverConfig from '../server/config/index.js';
 
@@ -56,11 +57,11 @@ const main = async () => {
       checker({
         vueTsc: true,
         eslint: {
-          lintCommand: `eslint "${ssrProjectFullPath}/**/*.{ts,tsx,vue,js}"`
+          lintCommand: `eslint "${ssrProjectFullPath}/**/*.{ts,tsx,vue,js}"`,
         },
         stylelint: {
-          lintCommand: `stylelint ${ssrProjectFullPath}/**/*.{scss,css,vue} --quiet-deprecation-warnings`
-        }
+          lintCommand: `stylelint "${toPosixPath(ssrProjectFullPath)}/**/*.{scss,css,vue}" --allow-empty-input --quiet-deprecation-warnings`,
+        },
       }),
       renameHtml(),
       ViteImageOptimizer({
@@ -121,7 +122,7 @@ const main = async () => {
   const myViteConfigPath = resolve(join('src', ssrProjectPath, 'my-vite.config.js'));
 
   if (existsSync(myViteConfigPath)) {
-    const myViteConfig = (await import(myViteConfigPath)).default;
+    const myViteConfig = (await import(normalizePathForImport(myViteConfigPath))).default;
 
     clientBuildConfig = myViteConfig(clientBuildConfig, { mode: 'build', ssrBuild: false });
     serverBuildConfig = myViteConfig(serverBuildConfig, { mode: 'build', ssrBuild: true });
@@ -153,7 +154,7 @@ const main = async () => {
     await cpy(resolve('server/**'), resolve('dist/server'));
     await cpy([
       resolve('package.json'),
-      resolve('pnpm-lock.yaml')
+      resolve('pnpm-lock.yaml'),
     ], resolve('dist'));
   }
   catch (e) {

@@ -13,3 +13,14 @@ export const getDefineByEnv = (mode, envDir) => {
 
   return result;
 }
+
+// 把任意路径转换成 posix 类型的路径
+export const toPosixPath = (path) => {
+  const isExtendedLengthPath = path.startsWith('\\\\?\\');
+
+  if (isExtendedLengthPath) {
+    return path;
+  }
+
+  return path.replace(/\\/g, '/');
+}

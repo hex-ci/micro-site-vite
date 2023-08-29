@@ -1,4 +1,5 @@
 import { stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import cbT from 'cb-template';
 
 export class BaseController {
@@ -51,3 +52,8 @@ export const trimSlash = (str) => {
 }
 
 export const fileExists = async path => !!(await stat(path).catch(() => false));
+
+// 规范化 import 的 path，防止在 windows 下报错
+export const normalizePathForImport = (path) => {
+  return process.platform === 'win32' ? join('file://', path) : path;
+}

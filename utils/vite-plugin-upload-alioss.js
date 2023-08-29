@@ -60,7 +60,7 @@ async function uploadFile({ filePath, filename, ossClient, keyPrefix, cdnCache }
     'Access-Control-Allow-Origin': '*',
     'Content-Type': contentType,
     'Cache-Control': 'max-age=315360000',
-    Expires: dayjs().add(10, 'years').toDate().toGMTString()
+    Expires: dayjs().add(10, 'years').toDate().toUTCString()
   };
 
   if (gzipMimes[ext]) {

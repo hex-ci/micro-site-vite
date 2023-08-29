@@ -11,7 +11,8 @@ import checker from 'vite-plugin-checker';
 
 import renameHtml from './vite-plugin-rename-html.js';
 import uploadAlioss from './vite-plugin-upload-alioss.js';
-import { getDefineByEnv } from './helper.js';
+import { getDefineByEnv, toPosixPath } from './helper.js';
+import { normalizePathForImport } from '#server/common/index.js';
 
 import serverConfig from '../server/config/index.js';
 
@@ -54,11 +55,11 @@ const main = async () => {
       checker({
         vueTsc: true,
         eslint: {
-          lintCommand: `eslint "${normalProjectFullPath}/**/*.{ts,tsx,vue,js}"`
+          lintCommand: `eslint "${normalProjectFullPath}/**/*.{ts,tsx,vue,js}"`,
         },
         stylelint: {
-          lintCommand: `stylelint ${normalProjectFullPath}/**/*.{scss,css,vue} --quiet-deprecation-warnings`
-        }
+          lintCommand: `stylelint "${toPosixPath(normalProjectFullPath)}/**/*.{scss,css,vue}" --allow-empty-input --quiet-deprecation-warnings`,
+        },
       }),
       renameHtml(),
       ViteImageOptimizer({
@@ -99,14 +100,16 @@ const main = async () => {
   const myViteConfigPath = resolve(join('src', normalProjectPath, 'my-vite.config.js'));
 
   if (existsSync(myViteConfigPath)) {
-    buildConfig = (await import(myViteConfigPath)).default(buildConfig, { mode: 'build', ssrBuild: false });
+    buildConfig = (await import(normalizePathForImport(myViteConfigPath))).default(buildConfig, { mode: 'build', ssrBuild: false });
   }
 
   try {
-    await build({
-      configFile: false,
-      ...buildConfig
-    });
+    if (existsSync(resolve(join('src', normalProjectPath, 'index.html')))) {
+      await build({
+        configFile: false,
+        ...buildConfig
+      });
+    }
 
     if (process.env.MICRO_SITE_USE_CDN !== 'yes') {
       await cpy([resolve(`dist/${normalProjectPath}/**/*`), '!**/*.html'], resolve(`dist/${serverConfig.resUrlPrefix}/${normalProjectPath}`));
@@ -118,7 +121,7 @@ const main = async () => {
     await cpy(resolve('server/**'), resolve('dist/server'));
     await cpy([
       resolve('package.json'),
-      resolve('pnpm-lock.yaml')
+      resolve('pnpm-lock.yaml'),
     ], resolve('dist'));
   }
   catch (e) {

@@ -8,7 +8,8 @@ import checker from 'vite-plugin-checker';
 import parseurl from 'parseurl';
 
 import { getMiddleware as getNormalMiddleware, getProjectInfo } from '../../server/middleware/normal.js';
-import { getDefineByEnv } from '../helper.js';
+import { getDefineByEnv, toPosixPath } from '../helper.js';
+import { normalizePathForImport } from '#server/common/index.js';
 
 const viteServerCache = {};
 const webSocketServerCache = {};
@@ -85,11 +86,11 @@ export default function getMiddleware({ devConfig, server } = {}) {
             checker({
               // vueTsc: true,
               eslint: {
-                lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`
+                lintCommand: `eslint "${projectFullPath}/**/*.{ts,tsx,vue,js}"`,
               },
               stylelint: {
-                lintCommand: `stylelint ${projectFullPath}/**/*.{scss,css,vue} --quiet-deprecation-warnings`
-              }
+                lintCommand: `stylelint "${toPosixPath(projectFullPath)}/**/*.{scss,css,vue}" --allow-empty-input --quiet-deprecation-warnings`,
+              },
             })
           ],
           base: `/__micro-site-normal__/${projectInfo.projectName}/__`,
@@ -98,14 +99,14 @@ export default function getMiddleware({ devConfig, server } = {}) {
           server: {
             middlewareMode: true,
             hmr: {
-              path: `/__ws__`,
+              path: '/__ws__',
               port,
-              clientPort
+              clientPort,
             },
             watch: {
               usePolling: true,
-              interval: 300
-            }
+              interval: 300,
+            },
           },
           appType: 'custom',
           resolve: {
@@ -113,12 +114,15 @@ export default function getMiddleware({ devConfig, server } = {}) {
               '@current': projectFullPath
             }
           },
+          optimizeDeps: {
+            entries: [`${projectFullPath}/main.{ts,js}`],
+          },
         });
 
         const myViteConfigPath = join(projectFullPath, 'my-vite.config.js');
 
         if (existsSync(myViteConfigPath)) {
-          viteConfig = (await import(myViteConfigPath)).default(viteConfig, { mode: 'development', ssrBuild: false });
+          viteConfig = (await import(normalizePathForImport(myViteConfigPath))).default(viteConfig, { mode: 'development', ssrBuild: false });
         }
 
         viteServer = await createViteServer({

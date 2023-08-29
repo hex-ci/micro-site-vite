@@ -2,7 +2,7 @@ import { stat } from 'node:fs/promises';
 import { dirname, basename, join } from 'node:path';
 import parseurl from 'parseurl';
 
-import { StaticController, fileExists, trimSlash } from '../common/index.js';
+import { StaticController, fileExists, trimSlash, normalizePathForImport } from '../common/index.js';
 
 const toCamelCase = (str, delimiter) => {
   const re = new RegExp(delimiter + '([a-z])', 'g')
@@ -122,7 +122,7 @@ export const getMiddleware = ({ viteServer = null } = {}) => {
         staticInstance.main(projectInfo.fileName);
       }
       else if (projectInfo.type === 'controller') {
-        const ControllerClass = (await import(projectInfo.fileName)).default;
+        const ControllerClass = (await import(normalizePathForImport(projectInfo.fileName))).default;
 
         const controller = new ControllerClass({ projectName: projectInfo.projectName, req, res, next, viteServer });
         let action = controller[projectInfo.methodName];
