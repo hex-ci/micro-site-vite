@@ -1,5 +1,5 @@
 import { stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, extname } from 'node:path';
 import cbT from 'cb-template';
 
 export class BaseController {
@@ -7,7 +7,7 @@ export class BaseController {
     this.$ctx = {
       request: req,
       response: res,
-      next
+      next,
     };
     this.$projectName = projectName;
 
@@ -16,34 +16,60 @@ export class BaseController {
   }
 
   $render(name, data = {}, options = {}) {
-    cbT.renderFile(`${this.$ctx.request.app.locals.serverConfig.normalFolderPrefix}/${this.$projectName}/${name.replace(/\.html$/i, '')}.html`, { ...this.$ctx.response.locals, ...data }, options, async (err, content) => {
-      if (err) {
-        if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
-          this.$ctx.next();
+    const fullname = extname(name) ? name : `${name}.html`;
+    const realExtname = extname(fullname);
+
+    cbT.renderFile(
+      `${this.$projectName}/${fullname}`,
+      { ...this.$ctx.response.locals, ...data },
+      { cache: process.env.NODE_ENV === 'production', ...options },
+      async (err, content) => {
+        if (err) {
+          if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+            this.$ctx.next();
+          }
+          else {
+            console.error(err);
+            this.$ctx.next(err);
+          }
         }
         else {
-          console.log(err);
-          this.$ctx.next(err);
-        }
-      }
-      else {
-        // 开发环境下，需要经过 vite 开发服务器处理 html 文件
-        if (process.env.NODE_ENV !== 'production' && this.$viteServer) {
-          content = await this.$viteServer.transformIndexHtml(this.$ctx.request.originalUrl, content);
-        }
+          // 开发环境下，需要经过 vite 开发服务器处理 html 文件
+          if (process.env.NODE_ENV !== 'production' && this.$viteServer && realExtname === '.html') {
+            content = await this.$viteServer.transformIndexHtml(this.$ctx.request.originalUrl, content);
+          }
 
-        this.$ctx.response.send(content);
-      }
-    });
+          this.$ctx.response.send(content);
+        }
+      },
+    );
   }
-}
 
-// 用于静态输出的控制器
-export class StaticController extends BaseController {
+  $renderToString(name, data = {}, options = {}) {
+    const fullname = extname(name) ? name : `${name}.html`;
+    const realExtname = extname(fullname);
 
-  // 首页
-  main(template) {
-    this.$render(template);
+    return new Promise((resolve, reject) => {
+      cbT.renderFile(
+        `${this.$projectName}/${fullname}`,
+        { ...this.$ctx.response.locals, ...data },
+        { cache: process.env.NODE_ENV === 'production', ...options },
+        async (err, content) => {
+          if (err) {
+            console.error(err);
+            reject(err);
+          }
+          else {
+            // 开发环境下，需要经过 vite 开发服务器处理 html 文件
+            if (process.env.NODE_ENV !== 'production' && this.$viteServer && realExtname === '.html') {
+              content = await this.$viteServer.transformIndexHtml(this.$ctx.request.originalUrl, content);
+            }
+
+            resolve(content);
+          }
+        },
+      );
+    })
   }
 }
 

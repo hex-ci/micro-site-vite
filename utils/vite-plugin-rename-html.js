@@ -12,6 +12,6 @@ export default function renameHtml() {
           bundle[key].fileName = basename(key);
         }
       }
-    }
+    },
   }
 }

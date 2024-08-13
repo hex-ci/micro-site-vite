@@ -1,4 +1,4 @@
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer as createHttpServer } from 'node:http';
 
@@ -8,13 +8,11 @@ import bodyParser from 'body-parser';
 import morgan from 'morgan';
 import cbT from 'cb-template';
 
-import { getMiddleware as getNormalMiddleware } from './middleware/normal.js';
-import { getMiddleware as getSsrMiddleware } from './middleware/ssr.js';
+import { getMiddleware } from './middleware/index.js';
 
 import config from './config/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const isDev = process.env.NODE_ENV !== 'production';
 
 async function createServer() {
   let host = config.host;
@@ -25,17 +23,13 @@ async function createServer() {
   // 初始化配置信息
   app.locals.serverConfig = {
     serverPath: __dirname,
-    ssrFolderPrefix: config.ssrFolderPrefix,
-    normalFolderPrefix: config.normalFolderPrefix,
     resUrlPrefix: config.resUrlPrefix,
     projectPath: config.projectPath,
-    normalProjectPath: join(config.projectPath, config.normalFolderPrefix),
-    ssrProjectPath: join(config.projectPath, config.ssrFolderPrefix),
-    homeProject: config.homeProject
+    routes: config.routes,
   };
 
-  app.use(morgan(isDev ? 'dev' : 'combined', {
-    skip: (req, res) => res.statusCode < (isDev ? 400 : 0)
+  app.use(morgan(process.env.NODE_ENV !== 'production' ? 'dev' : 'combined', {
+    skip: (req, res) => res.statusCode < (process.env.NODE_ENV !== 'production' ? 400 : 0),
   }));
   app.use(bodyParser.json({ limit: '6mb' }));
   app.use(bodyParser.urlencoded({ limit: '6mb', extended: false }));
@@ -45,23 +39,28 @@ async function createServer() {
 
   // 定义模板引擎
   app.engine('html', function(filePath, options, callback) {
-    engine.renderFile(filePath, { ...options }, {}, (err, content) => {
-      if (err) {
-        return callback(err);
-      }
+    engine.renderFile(
+      filePath,
+      { ...options },
+      { cache: process.env.NODE_ENV === 'production' },
+      (err, content) => {
+        if (err) {
+          return callback(err);
+        }
 
-      return callback(null, content);
-    });
+        return callback(null, content);
+      },
+    );
   });
   app.set('views', resolve(__dirname, 'views'));
   app.set('view engine', 'html');
 
-  cbT.leftDelimiter = '{%';
-  cbT.rightDelimiter = '%}';
+  cbT.leftDelimiter = '{{%';
+  cbT.rightDelimiter = '%}}';
 
   const server = createHttpServer(app);
 
-  if (isDev) {
+  if (process.env.NODE_ENV !== 'production') {
     const createDevServer = (await import('../utils/dev-server/index.js')).default;
 
     ({ host, port } = await createDevServer({ app, server }));
@@ -75,11 +74,8 @@ async function createServer() {
     app.use(express.static(config.publicPath));
     app.use(`/${config.resUrlPrefix}`, express.static(config.resPath));
 
-    // 用于非 SSR 的中间件
-    app.use(getNormalMiddleware());
-
-    // 用于 SSR 的中间件
-    app.use(getSsrMiddleware());
+    // 主中间件
+    app.use(getMiddleware());
   }
 
   // eslint-disable-next-line no-unused-vars
@@ -103,7 +99,7 @@ async function createServer() {
   app.use(function(req, res) {
     const payload = {
       url: req.originalUrl,
-      error: 'Not found'
+      error: 'Not found',
     };
 
     if (req.xhr) {
@@ -114,9 +110,9 @@ async function createServer() {
   });
 
   // Listen the server
-  server.listen(port, host);
-
-  console.log(`Server listening on http://${host}:${port}`);
+  server.listen(port, host, () => {
+    console.log(`Server listening on http://${host}:${port}`);
+  });
 }
 
 createServer();

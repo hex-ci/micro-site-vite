@@ -1,15 +1,14 @@
 import { join } from 'node:path';
-
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { register } from "node:module";
+import { legacyCreateProxyMiddleware } from 'http-proxy-middleware';
 import compress from 'compression';
 import express from 'express';
 import qs from 'qs';
 import cbT from 'cb-template';
 
-import getNormalMiddleware from './normal.js';
-import getSsrMiddleware  from './ssr.js';
+import { getMiddleware } from './middleware.js';
 
-import config from '../../server/config/index.js';
+register('./hooks.js', import.meta.url);
 
 // 处理 http-proxy-middleware 和 body-parser 冲突的问题
 const onProxyReq = (proxyReq, req) => {
@@ -35,8 +34,6 @@ const onProxyReq = (proxyReq, req) => {
 export default async function createServer({ app, server }) {
   const devConfig = await (await import('../../config/config.dev.js')).default();
 
-  app.locals.serverConfig.normalProjectPath = join(devConfig.projectPath, config.normalFolderPrefix);
-  app.locals.serverConfig.ssrProjectPath = join(devConfig.projectPath, config.ssrFolderPrefix);
   app.locals.serverConfig.projectPath = devConfig.projectPath;
 
   // 设置全局 cbT basePath
@@ -55,7 +52,7 @@ export default async function createServer({ app, server }) {
       };
     }
 
-    app.use(createProxyMiddleware(key, options));
+    app.use(legacyCreateProxyMiddleware(key, options));
   }
 
   app.use('/favicon.ico', (req, res) => {
@@ -63,14 +60,11 @@ export default async function createServer({ app, server }) {
   });
   app.use(express.static(devConfig.publicPath));
 
-  // 用于非 SSR 的中间件
-  app.use(getNormalMiddleware({ devConfig, server }));
-
-  // 用于 SSR 的中间件
-  app.use(getSsrMiddleware({ devConfig, server }));
+  // 主中间件
+  app.use(getMiddleware({ devConfig, server }));
 
   return {
     host: devConfig.host,
-    port: devConfig.port
+    port: devConfig.port,
   };
 }

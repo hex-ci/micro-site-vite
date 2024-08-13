@@ -6,7 +6,6 @@ import fs from 'node:fs';
 import { URL, fileURLToPath } from 'node:url';
 import OSS from 'ali-oss';
 import mime from 'mime';
-import dayjs from 'dayjs';
 import log from 'fancy-log';
 import colors from 'ansi-colors';
 import { globSync } from 'glob';
@@ -59,8 +58,7 @@ async function uploadFile({ filePath, filename, ossClient, keyPrefix, cdnCache }
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': contentType,
-    'Cache-Control': 'max-age=315360000',
-    Expires: dayjs().add(10, 'years').toDate().toUTCString()
+    'Cache-Control': 'max-age=315360000, immutable',
   };
 
   if (gzipMimes[ext]) {
@@ -130,9 +128,9 @@ export default function uploadAlioss(options) {
               // custom ignore
               options.ignore ? options.ignore :
               // ssr client ignore
-                ssrClient ? ['**/ssr-manifest.json', '**/*.html', '**/server/**'] :
+                ssrClient ? ['**/.vite/ssr-manifest.json', '**/*.html', '**/*.template.js', '**/server/**'] :
                   // default ignore
-                  '**/*.html'
+                  ['**/.vite/manifest.json', '**/*.html', '**/*.template.js'],
           }
         );
 

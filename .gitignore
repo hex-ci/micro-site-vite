@@ -73,3 +73,5 @@ dist/
 /utils/.cache/
 /utils/*.json
 tsconfig.tsbuildinfo
+.stylelintcache
+vite.config.ts.timestamp-*

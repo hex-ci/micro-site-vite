@@ -5,12 +5,12 @@
   "verbose": false,
   "watch": [
     "server",
-    "src/normal/**/server/*.js",
+    "src/**/server/*.js",
     "utils",
     "config"
   ],
   "env": {
     "NODE_ENV": "development"
   },
-  "ext": "js"
+  "ext": "ts,js"
 }

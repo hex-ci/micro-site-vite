@@ -1,80 +1,104 @@
 /* eslint-env node */
-require('@rushstack/eslint-patch/modern-module-resolution')
+
+// Migrate built-in rules to @stylistic namespace
+/* eslint @stylistic/migrate/migrate: "error" */
 
 module.exports = {
   root: true,
   extends: [
-    'plugin:vue/vue3-recommended',
     'eslint:recommended',
-    '@vue/eslint-config-typescript'
+    'plugin:vue/vue3-recommended',
+    '@vue/eslint-config-typescript/recommended',
+    'plugin:@stylistic/disable-legacy',
+  ],
+  plugins: [
+    '@stylistic',
+    '@stylistic/migrate',
   ],
   parserOptions: {
-    ecmaVersion: 'latest'
+    ecmaVersion: 'latest',
   },
   env: {
-    browser: true,
     node: true,
-    es6: true,
-    commonjs: true,
-    amd: true
+  },
+  globals: {
+    NodeListOf: 'readonly',
+  },
+  settings: {
+    'vue-i18n': {
+      localeDir: './src/common/locales/*.{yaml}',
+      messageSyntaxVersion: '^9.0.0',
+    },
   },
   rules: {
-    'strict': ['off', 'function'],
-    'indent': ['warn', 2, { 'SwitchCase': 1 }],
-    'no-console': 'off',
-    //'brace-style': [1, 'stroustrup', {'allowSingleLine': false}],
-    'comma-style': [1, 'last'],
-    'default-case': 2,
-    'no-floating-decimal': 2,
-    'space-before-function-paren': [1, {
-      'anonymous': 'never',
-      'named': 'never',
-      'asyncArrow': 'always'
+    '@stylistic/indent': ['warn', 2, { SwitchCase: 1 }],
+    '@stylistic/comma-style': [1, 'last'],
+    '@stylistic/no-floating-decimal': 2,
+    '@stylistic/space-before-function-paren': [1, {
+      anonymous: 'never',
+      named: 'never',
+      asyncArrow: 'always',
     }],
-    'keyword-spacing': 2,
-    'space-before-blocks': 1,
-    'wrap-iife': [2, 'any'],
-    'curly': [2, 'all'],
-    'no-empty': [2, { 'allowEmptyCatch': true }],
+    '@stylistic/keyword-spacing': 2,
+    '@stylistic/space-before-blocks': 1,
+    '@stylistic/wrap-iife': [2, 'any'],
+    '@stylistic/no-extra-semi': 'error',
+    '@stylistic/semi': 0,
+    '@stylistic/no-mixed-spaces-and-tabs': 1,
+    '@stylistic/no-trailing-spaces': 1,
+    '@stylistic/space-infix-ops': 1,
+    '@stylistic/semi-spacing': 1,
+    '@stylistic/key-spacing': [1, { beforeColon: false, afterColon: true, mode: 'strict' }],
+    '@stylistic/space-in-parens': [1, 'never'],
+    '@stylistic/arrow-spacing': [2, {
+      before: true,
+      after: true,
+    }],
+    '@stylistic/block-spacing': [2, 'always'],
+    '@stylistic/comma-spacing': [2, {
+      before: false,
+      after: true,
+    }],
+    '@stylistic/dot-location': [2, 'property'],
+    '@stylistic/eol-last': 2,
+    '@stylistic/generator-star-spacing': 0,
+    '@stylistic/jsx-quotes': [2, 'prefer-single'],
+    '@stylistic/new-parens': 2,
+    '@stylistic/no-whitespace-before-property': 2,
+    '@stylistic/space-unary-ops': [2, {
+      words: true,
+      nonwords: false,
+    }],
+    '@stylistic/template-curly-spacing': [2, 'never'],
+    '@stylistic/yield-star-spacing': [2, 'both'],
+    '@stylistic/object-curly-spacing': [1, 'always', { objectsInObjects: true }],
+    '@stylistic/array-bracket-spacing': [2, 'never'],
+    '@stylistic/type-annotation-spacing': 1,
+    '@stylistic/quote-props': [1, 'as-needed'],
+    '@stylistic/comma-dangle': [1, 'always-multiline'],
+
+    '@typescript-eslint/no-redeclare': 2,
+    '@typescript-eslint/no-explicit-any': 0,
+
+    'no-console': 'off',
+    'default-case': 2,
+    curly: [2, 'all'],
+    'no-empty': [2, { allowEmptyCatch: true }],
     'no-obj-calls': 2,
-    // 'no-unused-vars': [1, { 'vars': 'local', 'args': 'after-used' }],
     'no-invalid-regexp': 2,
     'no-undef': 2,
-    'no-extra-semi': 0,
     'no-caller': 1,
-    'semi': 0,
     'no-unreachable': 2,
     'no-multi-str': 1,
-    'no-mixed-spaces-and-tabs': 1,
-    'no-trailing-spaces': 1,
-    'space-infix-ops': 1,
     'no-with': 2,
     'dot-notation': 1,
-    'semi-spacing': 1,
-    'key-spacing': [1, { 'beforeColon': false, 'afterColon': true, 'mode': 'minimum' }],
-    'space-in-parens': [1, 'never'],
     'prefer-const': 2,
-
     'accessor-pairs': 2,
-    'arrow-spacing': [2, {
-      'before': true,
-      'after': true
-    }],
-    'block-spacing': [2, 'always'],
-    'camelcase': [0, {
-      'properties': 'always'
-    }],
-    'comma-spacing': [2, {
-      'before': false,
-      'after': true
+    camelcase: [0, {
+      properties: 'always',
     }],
     'constructor-super': 2,
-    'dot-location': [2, 'property'],
-    'eol-last': 2,
-    'generator-star-spacing': 0,
     'handle-callback-err': [2, '^(err|error)$'],
-    'jsx-quotes': [2, 'prefer-single'],
-    'new-parens': 2,
     'no-array-constructor': 2,
     'no-class-assign': 2,
     'no-cond-assign': 2,
@@ -99,8 +123,8 @@ module.exports = {
     'no-iterator': 2,
     'no-label-var': 2,
     'no-labels': [2, {
-      'allowLoop': false,
-      'allowSwitch': false
+      allowLoop: false,
+      allowSwitch: false,
     }],
     'no-lone-blocks': 2,
     'no-native-reassign': 2,
@@ -113,7 +137,6 @@ module.exports = {
     'no-octal-escape': 2,
     'no-path-concat': 2,
     'no-proto': 2,
-    'no-redeclare': 2,
     'no-regex-spaces': 2,
     'no-self-assign': 2,
     'no-self-compare': 2,
@@ -125,38 +148,29 @@ module.exports = {
     'no-undef-init': 2,
     'no-unexpected-multiline': 2,
     'no-unneeded-ternary': [2, {
-      'defaultAssignment': false
+      defaultAssignment: false,
     }],
     'no-unsafe-finally': 2,
     'no-useless-call': 2,
     'no-useless-computed-key': 2,
     'no-useless-constructor': 2,
     'no-useless-escape': 0,
-    'no-whitespace-before-property': 2,
-    'space-unary-ops': [2, {
-      'words': true,
-      'nonwords': false
-    }],
-    'template-curly-spacing': [2, 'never'],
     'use-isnan': 2,
     'valid-typeof': 2,
-    'yield-star-spacing': [2, 'both'],
-    'yoda': [2, 'never'],
+    yoda: [2, 'never'],
     'no-debugger': process.env.NODE_ENV === 'production' ? 2 : 0,
-    'object-curly-spacing': [1, 'always', { objectsInObjects: true }],
-    'array-bracket-spacing': [2, 'never'],
     'no-var': 2,
 
     'vue/max-attributes-per-line': 0,
     'vue/attributes-order': 0,
     'vue/html-self-closing': ['error', {
-      'html': {
-        'void': 'never',
-        'normal': 'never',
-        'component': 'always'
+      html: {
+        void: 'never',
+        normal: 'never',
+        component: 'always',
       },
-      'svg': 'always',
-      'math': 'always'
+      svg: 'always',
+      math: 'always',
     }],
     'vue/require-default-prop': 0,
     'vue/no-parsing-error': ['error', {
@@ -195,32 +209,53 @@ module.exports = {
       'end-tag-with-trailing-solidus': true,
       'non-void-html-element-start-tag-with-trailing-solidus': false,
       'x-invalid-end-tag': true,
-      'x-invalid-namespace': true
+      'x-invalid-namespace': true,
     }],
     'vue/multiline-html-element-content-newline': 0,
     'vue/singleline-html-element-content-newline': 0,
     'vue/no-use-v-if-with-v-for': [1, {
-      "allowUsingIterationVar": true
+      allowUsingIterationVar: true,
     }],
     'vue/require-prop-type-constructor': 0,
     'vue/html-closing-bracket-newline': 0,
     'vue/arrow-spacing': [2, {
-      'before': true,
-      'after': true
+      before: true,
+      after: true,
     }],
     'vue/block-spacing': [2, 'always'],
-    'vue/brace-style': [1, 'stroustrup', { 'allowSingleLine': true }],
-    'vue/comma-dangle': [1, 'never'],
-    'vue/key-spacing': [1, { "beforeColon": false, "afterColon": true, "mode": "minimum" }],
+    'vue/brace-style': [1, 'stroustrup', { allowSingleLine: true }],
+    'vue/key-spacing': [1, { beforeColon: false, afterColon: true, mode: "minimum" }],
     // "vue/keyword-spacing": [2, {"after": true}],
     // 'vue/no-empty-pattern': 2,
     'vue/object-curly-spacing': [1, 'always', { objectsInObjects: true }],
     "vue/space-infix-ops": 1,
     'vue/space-unary-ops': [2, {
-      'words': true,
-      'nonwords': false
+      words: true,
+      nonwords: false,
     }],
     'vue/custom-event-name-casing': 0,
-    'vue/multi-word-component-names': 0
-  }
+    'vue/multi-word-component-names': 0,
+    'vue/component-name-in-template-casing': [1, 'PascalCase', {
+      registeredComponentsOnly: false,
+      ignores: [
+        'i18n-t',
+        '/^[A-Z][a-zA-Z]*(\\.[A-Z][a-zA-Z]*)*$/',
+      ],
+    }],
+    'vue/comma-spacing': [2, {
+      before: false,
+      after: true,
+    }],
+    'vue/block-tag-newline': 1,
+    'vue/block-lang': ['error',
+      {
+        script: {
+          lang: 'ts',
+        },
+      },
+    ],
+    'vue/padding-line-between-blocks': 1,
+
+    '@intlify/vue-i18n/no-raw-text': 0,
+  },
 }

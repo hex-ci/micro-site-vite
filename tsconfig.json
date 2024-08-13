@@ -1,22 +1,11 @@
 {
-  "extends": "@vue/tsconfig/tsconfig.web.json",
-  "include": ["src/vite-env.d.ts", "src/**/*.vue", "src/**/*.ts", "src/**/*.vue.ts"],
-  "compilerOptions": {
-    "composite": true,
-    "ignoreDeprecations": "5.0",
-    "verbatimModuleSyntax": false,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@ssr/*": ["./src/ssr/*"],
-      "@normal/*": ["./src/normal/*"],
-      "@static/*": ["./src/static/*"]
-    }
-  },
-
+  "files": [],
   "references": [
     {
       "path": "./tsconfig.node.json"
+    },
+    {
+      "path": "./tsconfig.app.json"
     },
     {
       "path": "./tsconfig.react.json"
